@@ -209,6 +209,8 @@ function loadData(cb) {
 function cancelCita(id) {
   fetch(SCRIPT_URL, {
     method:'POST',
+    mode: 'no-cors',
+    headers: {'Content-Type': 'text/plain'},
     body: JSON.stringify({accion:'cancelar', id: id})
   }).then(function(){ loadData(); });
 }
@@ -223,7 +225,8 @@ function blockDay(dateStr) {
 function unblockDay(dateStr) {
   fetch(SCRIPT_URL, {
     method:'POST',
-    headers: {'Content-Type': 'application/json'},
+    mode: 'no-cors',
+    headers: {'Content-Type': 'text/plain'},
     body: JSON.stringify({accion:'desbloquear', fecha: dateStr})
   }).then(function(){ loadData(); });
 }
@@ -540,7 +543,8 @@ function bindEvents() {
       }
       fetch(SCRIPT_URL, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain'},
         body: JSON.stringify({accion:'bloquear', fecha: sel[i]})
       })
       .then(function(r){ return r.json(); })
@@ -560,3 +564,4 @@ render();
 </script>
 </body>
 </html>
+

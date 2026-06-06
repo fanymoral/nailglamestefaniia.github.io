@@ -149,7 +149,7 @@
 <div id="root"></div>
 
 <script>
-var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXO9F-PR-yZryfCN7u2xV9_9MndAEnroFPijEVAd_OvuaokD_kBnkmfkkl4sYzwBE6/exec";
+var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysC28MkZTH4DN0l3GWDmL4uWoHTUeGk93f1g9KFBjQ5JCebJzUp8IaNAeOiP43T1Qd/exec";
 var PASSWORD = "estefania2024"; // ← Cambia tu contraseña aquí
 
 var SCHEDULE = {
@@ -223,6 +223,7 @@ function blockDay(dateStr) {
 function unblockDay(dateStr) {
   fetch(SCRIPT_URL, {
     method:'POST',
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({accion:'desbloquear', fecha: dateStr})
   }).then(function(){ loadData(); });
 }
@@ -529,8 +530,24 @@ function bindEvents() {
   if (bsBtn) bsBtn.addEventListener('click', function(){
     var sel = app.blockSelected || [];
     if (!sel.length) return;
-    var promises = sel.map(function(ds){ return fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({accion:'bloquear',fecha:ds})}); });
-    Promise.all(promises).then(function(){ app.blockSelected=[]; loadData(); });
+    bsBtn.disabled = true;
+    bsBtn.textContent = 'Guardando...';
+    function blockNext(i) {
+      if (i >= sel.length) {
+        app.blockSelected = [];
+        loadData();
+        return;
+      }
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({accion:'bloquear', fecha: sel[i]})
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(){ blockNext(i+1); })
+      .catch(function(){ blockNext(i+1); });
+    }
+    blockNext(0);
   });
   var csBtn = document.getElementById('clearSelBtn');
   if (csBtn) csBtn.addEventListener('click', function(){ app.blockSelected=[]; render(); });

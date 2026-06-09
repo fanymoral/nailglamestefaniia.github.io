@@ -110,7 +110,8 @@
 
 <script>
 var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysC28MkZTH4DN0l3GWDmL4uWoHTUeGk93f1g9KFBjQ5JCebJzUp8IaNAeOiP43T1Qd/exec";
-var WHATSAPP = "34672574200"; // ← Cambia por tu número
+var WHATSAPP = "34672574200";
+var SHEETDB_URL = "https://sheetdb.io/api/v1/atytsrud05pw3"; // ← Cambia por tu número
 
 var CONFIG = {
   maxAdvanceDays: 60,
@@ -144,13 +145,15 @@ var state = {
 // Cargar citas y días bloqueados desde Google Sheets
 function loadData(cb) {
   showLoading(true);
-  fetch(SCRIPT_URL)
+  fetch(SHEETDB_URL+'?sheet=Citas')
     .then(function(r){ return r.json(); })
-    .then(function(data) {
-      if (data.ok) {
-        state.bookedSlots = (data.citas || []).filter(function(c){ return c.Estado !== 'cancelada'; });
-        state.blockedDays = (data.bloqueados || []);
-      }
+    .then(function(citas) {
+      state.bookedSlots = (citas || []).filter(function(c){ return c.Estado !== 'cancelada'; });
+      return fetch(SHEETDB_URL+'?sheet=Bloqueados');
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(bloqueados) {
+      state.blockedDays = (bloqueados || []).map(function(b){ return b.Fecha || b.fecha || ''; }).filter(Boolean);
       showLoading(false);
       if (cb) cb();
     })
@@ -347,23 +350,22 @@ function bind() {
     var svcPrices=state.services.map(function(s){return s.price;}).join(' + ');
     var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
     showLoading(true);
-    fetch(SCRIPT_URL, {
+    fetch(SHEETDB_URL, {
       method:'POST',
-      mode: 'no-cors',
-      headers: {'Content-Type': 'text/plain'},
-      body: JSON.stringify({
-        id: Date.now(),
-        fecha: state.date,
-        hora: state.time,
-        servicio: svcNames,
-        precio: svcPrices,
-        duracion: totalDur+' min',
-        nombre: state.name,
-        telefono: state.phone,
-        notas: state.notes,
-        reservadaEl: new Date().toLocaleString('es-ES'),
-        estado: 'confirmada'
-      })
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify({data: {
+        ID: Date.now(),
+        Fecha: state.date,
+        Hora: state.time,
+        Servicio: svcNames,
+        Precio: svcPrices,
+        'Duración': totalDur+' min',
+        Nombre: state.name,
+        'Teléfono': state.phone,
+        Notas: state.notes,
+        'Reservada el': new Date().toLocaleString('es-ES'),
+        Estado: 'confirmada'
+      }})
     })
     .then(function(){ showLoading(false); state.step=5; render(); })
     .catch(function(){ showLoading(false); state.step=5; render(); });

@@ -190,6 +190,16 @@
   .horario-add-btn:hover { border-color:var(--rose); color:var(--rose); }
   .horario-closed-toggle { display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--warm-gray); margin-bottom:0.5rem; }
   .horario-save-bar { position:sticky; bottom:1rem; background:var(--white); border-radius:12px; padding:1rem; box-shadow:0 4px 20px rgba(42,26,20,0.15); margin-top:1rem; display:flex; gap:1rem; align-items:center; }
+
+  /* STATS */
+  .stats-section { background:var(--white); border-radius:14px; padding:1.5rem; box-shadow:0 2px 12px rgba(42,26,20,0.06); margin-bottom:1.2rem; }
+  .stats-bar-row { display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem; }
+  .stats-bar-label { font-size:0.8rem; width:160px; flex-shrink:0; }
+  .stats-bar-track { flex:1; background:var(--light-gray); border-radius:6px; height:18px; overflow:hidden; }
+  .stats-bar-fill { height:100%; border-radius:6px; transition:width 0.4s; }
+  .stats-bar-value { font-size:0.78rem; color:var(--warm-gray); width:50px; text-align:right; flex-shrink:0; }
+  .stats-month-select { border:1.5px solid var(--light-gray); border-radius:10px; padding:0.6rem 1rem; font-family:'DM Sans',sans-serif; font-size:0.85rem; outline:none; background:var(--cream); margin-bottom:1rem; }
+  .stats-big-number { font-family:'Cormorant Garamond',serif; font-size:2.4rem; font-weight:300; color:var(--rose); }
   /* BLOCK CALENDAR */
   .bcal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem; }
   .bcal-month-title { font-family:'Cormorant Garamond',serif; font-size:1.2rem; }
@@ -245,7 +255,8 @@ var app = {
   clientas: [],
   clientaSearch: '',
   clientaEditing: null,
-  schedule: null
+  schedule: null,
+  statsMonth: null
 };
 
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -406,6 +417,75 @@ function renderHorarios() {
     +'</div>';
 }
 
+
+function renderStats() {
+  var citasActivas = app.citas.filter(function(c){ return c.Estado !== 'cancelada'; });
+
+  // Get available months from data
+  var monthsSet = {};
+  citasActivas.forEach(function(c){
+    if (c.Fecha) monthsSet[c.Fecha.substring(0,7)] = true;
+  });
+  var months = Object.keys(monthsSet).sort().reverse();
+  var currentMonth = new Date().getFullYear()+'-'+pad(new Date().getMonth()+1);
+  if (months.indexOf(currentMonth)<0) months.unshift(currentMonth);
+  var selMonth = app.statsMonth || currentMonth;
+
+  var monthOptions = months.map(function(m){
+    var parts = m.split('-');
+    var mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var label = mNames[parseInt(parts[1])-1]+' '+parts[0];
+    return '<option value="'+m+'"'+(m===selMonth?' selected':'')+'>'+label+'</option>';
+  }).join('');
+
+  var citasMes = citasActivas.filter(function(c){ return (c.Fecha||'').substring(0,7) === selMonth; });
+
+  // Revenue calculation - parse prices like "20€ + 8€"
+  function parsePrice(precioStr) {
+    if (!precioStr) return 0;
+    var matches = precioStr.match(/(\d+(?:[.,]\d+)?)/g);
+    if (!matches) return 0;
+    return matches.reduce(function(sum, n){ return sum + parseFloat(n.replace(',','.')); }, 0);
+  }
+
+  var totalIngresos = citasMes.reduce(function(sum, c){ return sum + parsePrice(c.Precio); }, 0);
+
+  // Service counts
+  var svcCounts = {};
+  citasMes.forEach(function(c){
+    var servicios = (c.Servicio||'').split(' + ');
+    servicios.forEach(function(s){
+      s = s.trim();
+      if (s) svcCounts[s] = (svcCounts[s]||0) + 1;
+    });
+  });
+  var svcEntries = Object.entries(svcCounts).sort(function(a,b){ return b[1]-a[1]; });
+  var maxCount = svcEntries.length ? svcEntries[0][1] : 1;
+
+  var colors = ['#E8829F','#66BB6A','#7E57C2','#FFEE58','#AB47BC','#FF7043','#26C6DA'];
+  var svcBarsHtml = svcEntries.length
+    ? svcEntries.map(function(e, idx){
+        var pct = (e[1]/maxCount)*100;
+        var color = colors[idx % colors.length];
+        return '<div class="stats-bar-row">'
+          +'<div class="stats-bar-label">'+e[0]+'</div>'
+          +'<div class="stats-bar-track"><div class="stats-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
+          +'<div class="stats-bar-value">'+e[1]+'x</div>'
+          +'</div>';
+      }).join('')
+    : '<div style="color:var(--warm-gray);font-size:0.85rem;font-style:italic">Sin datos este mes</div>';
+
+  return '<div class="stats-section">'
+    +'<select class="stats-month-select" id="statsMonthSelect">'+monthOptions+'</select>'
+    +'<div style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1.5rem">'
+    +'<div><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray)">Citas este mes</div><div class="stats-big-number">'+citasMes.length+'</div></div>'
+    +'<div><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray)">Ingresos estimados</div><div class="stats-big-number">'+totalIngresos.toFixed(0)+'€</div></div>'
+    +'</div>'
+    +'<div class="block-title" style="font-size:1.1rem;margin-bottom:1rem">Servicios más solicitados</div>'
+    +svcBarsHtml
+    +'</div>';
+}
+
 function render() {
   document.getElementById('root').innerHTML = app.loggedIn ? renderAdmin() : renderLogin();
   bindEvents();
@@ -434,6 +514,8 @@ function renderAdmin() {
     inner = renderClientas();
   } else if (app.tab==='horarios') {
     inner = renderHorarios();
+  } else if (app.tab==='stats') {
+    inner = renderStats();
   } else {
     inner = renderBloquear();
   }
@@ -462,6 +544,7 @@ function renderAdmin() {
     +'<button class="tab'+(app.tab==='bloquear'?' active':'')+'" data-tab="bloquear">🚫 Bloquear días</button>'
     +'<button class="tab'+(app.tab==='clientas'?' active':'')+'" data-tab="clientas">💅 Fichas clientas</button>'
     +'<button class="tab'+(app.tab==='horarios'?' active':'')+'" data-tab="horarios">🕐 Horarios</button>'
+    +'<button class="tab'+(app.tab==='stats'?' active':'')+'" data-tab="stats">📊 Estadísticas</button>'
     +'</div>'
     +inner
     +'</div>'
@@ -594,26 +677,36 @@ function renderAgenda() {
 function renderLista() {
   var today = new Date(); today.setHours(0,0,0,0);
   var todayStr = today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
+  var tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
+  var tomorrowStr = tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate());
+
   var citasHoy = app.citas.filter(function(c){ return c.Fecha===todayStr && c.Estado!=='cancelada'; })
     .sort(function(a,b){ return a.Hora>b.Hora?1:-1; });
+  var citasManana = app.citas.filter(function(c){ return c.Fecha===tomorrowStr && c.Estado!=='cancelada'; })
+    .sort(function(a,b){ return a.Hora>b.Hora?1:-1; });
 
-  var recordHtml = '<div style="background:linear-gradient(135deg,#FFF4F8,#FAF0FF);border:1.5px solid var(--blush);border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1.5rem;">'
-    +'<div style="font-family:Cormorant Garamond,serif;font-size:1.2rem;margin-bottom:0.5rem;">📱 Recordatorios de hoy</div>';
-  if (!citasHoy.length) {
-    recordHtml += '<div style="font-size:0.82rem;color:var(--warm-gray);font-style:italic">No hay citas para hoy.</div>';
-  } else {
-    recordHtml += '<div style="font-size:0.78rem;color:var(--warm-gray);margin-bottom:0.8rem">Pulsa el botón de cada clienta para enviarle el recordatorio por WhatsApp</div>';
-    recordHtml += citasHoy.map(function(c){
-      var msg = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te recuerdo tu cita de hoy en Nail Glam Estefania a las '+c.Hora+' para '+c.Servicio+'. ¡Te espero! Si necesitas cancelar avísame con antelación. ✨');
+  function buildRecordList(citas, labelDia, mensajeDia) {
+    if (!citas.length) {
+      return '<div style="font-size:0.82rem;color:var(--warm-gray);font-style:italic;margin-bottom:1rem">No hay citas para '+labelDia+'.</div>';
+    }
+    return citas.map(function(c){
+      var msg = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te recuerdo tu cita '+mensajeDia+' en Nail Glam Estefania a las '+c.Hora+' para '+c.Servicio+'. ¡Te espero! Si necesitas cancelar avísame con antelación. ✨');
       var tel = (c['Teléfono']||c.Telefono||'').replace(/\D/g,'');
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--light-gray);">'
         +'<div><div style="font-weight:500;font-size:0.88rem">'+c.Nombre+'</div>'
         +'<div style="font-size:0.75rem;color:var(--warm-gray)">'+c.Hora+' · '+c.Servicio+'</div></div>'
-        +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa">💬 Enviar recordatorio</a>'
+        +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa">💬 Enviar</a>'
         +'</div>';
     }).join('');
   }
-  recordHtml += '</div>';
+
+  var recordHtml = '<div style="background:linear-gradient(135deg,#FFF4F8,#FAF0FF);border:1.5px solid var(--blush);border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1.5rem;">'
+    +'<div style="font-family:Cormorant Garamond,serif;font-size:1.2rem;margin-bottom:0.3rem;">📱 Recordatorios de hoy</div>'
+    +'<div style="font-size:0.78rem;color:var(--warm-gray);margin-bottom:0.8rem">Pulsa "Enviar" para abrir WhatsApp con el mensaje listo</div>'
+    +buildRecordList(citasHoy, 'hoy', 'de hoy')
+    +'<div style="font-family:Cormorant Garamond,serif;font-size:1.2rem;margin:1rem 0 0.5rem;">📅 Recordatorios de mañana</div>'
+    +buildRecordList(citasManana, 'mañana', 'de mañana')
+    +'</div>';
 
   var sorted = app.citas.slice().sort(function(a,b){
     var da=a.Fecha+a.Hora, db=b.Fecha+b.Hora;
@@ -832,6 +925,12 @@ function bindEvents() {
       app.schedule = JSON.parse(JSON.stringify(SCHEDULE));
       render();
     }
+  });
+
+  // Stats
+  var statsSelect = document.getElementById('statsMonthSelect');
+  if (statsSelect) statsSelect.addEventListener('change', function(){
+    app.statsMonth = this.value; render();
   });
 
   // Cancel buttons (lista)

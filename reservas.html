@@ -237,13 +237,7 @@ function getSlots(dateStr, dur) {
   var pmBlocked = state.blockedDays.indexOf(dateStr+'_PM') >= 0;
   var SPLIT = 14*60; // 14:00 divide mañana/tarde
 
-  // Citas existentes ese día, ordenadas por hora
-  var dayBookings = state.bookedSlots.filter(function(b){ return b.Fecha===dateStr; })
-    .map(function(b){
-      var start = timeToMins(b.Hora);
-      var bDur = parseInt(b['Duración']||b.Duracion||'60') || 60;
-      return {start:start, end:start+bDur};
-    }).sort(function(a,b){return a.start-b.start;});
+  var STEP = 30; // mostrar siempre huecos cada 30 minutos
 
   for (var r=0;r<ranges.length;r++) {
     var rangeStart=ranges[r][0], rangeEnd=ranges[r][1];
@@ -257,41 +251,14 @@ function getSlots(dateStr, dur) {
     if (pmBlocked && rangeEnd > SPLIT) rangeEnd = SPLIT;
     if (rangeStart >= rangeEnd) continue;
 
-    // Construir lista de huecos libres dentro de esta franja
-    var freeGaps = [];
-    var cursor = rangeStart;
-    dayBookings.forEach(function(b){
-      if (b.start > cursor && b.start <= rangeEnd) {
-        freeGaps.push({start:cursor, end:Math.min(b.start, rangeEnd)});
+    var cur = rangeStart;
+    while (cur + dur <= rangeEnd) {
+      if (cur >= nowMins) {
+        var t = pad(Math.floor(cur/60))+':'+pad(cur%60);
+        slots.push({time:t, taken:isSlotTaken(dateStr,t,dur)});
       }
-      if (b.end > cursor) cursor = Math.max(cursor, Math.min(b.end, rangeEnd));
-    });
-    if (cursor < rangeEnd) freeGaps.push({start:cursor, end:rangeEnd});
-
-    // Para cada hueco libre, generar horarios de inicio posibles
-    freeGaps.forEach(function(gap){
-      var cur = gap.start;
-      // Si el hueco es exactamente del tamaño del servicio (o algo más), ofrecer empezar ahí
-      while (cur + dur <= gap.end) {
-        if (cur >= nowMins) {
-          var t = pad(Math.floor(cur/60))+':'+pad(cur%60);
-          if (!slots.some(function(s){return s.time===t;})) {
-            slots.push({time:t, taken:false});
-          }
-        }
-        cur += dur;
-      }
-      // Si el hueco es más pequeño que dur pero el servicio cabría empezando al inicio
-      // ya está cubierto arriba. Si el hueco es más grande, también ofrecer la opción
-      // de empezar de forma que termine justo al final del hueco (aprovechar huecos sueltos)
-      var altStart = gap.end - dur;
-      if (altStart > gap.start && altStart >= nowMins && altStart + dur <= gap.end) {
-        var t2 = pad(Math.floor(altStart/60))+':'+pad(altStart%60);
-        if (!slots.some(function(s){return s.time===t2;})) {
-          slots.push({time:t2, taken:false});
-        }
-      }
-    });
+      cur += STEP;
+    }
   }
 
   slots.sort(function(a,b){ return timeToMins(a.time)-timeToMins(b.time); });

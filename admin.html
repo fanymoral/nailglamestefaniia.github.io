@@ -176,6 +176,20 @@
   .clienta-form { background:var(--white); border-radius:14px; padding:1.5rem; box-shadow:0 2px 12px rgba(42,26,20,0.06); margin-bottom:1.5rem; border:1.5px solid var(--blush); }
   .clienta-form-title { font-family:'Cormorant Garamond',serif; font-size:1.3rem; margin-bottom:1rem; }
   .no-clientas { text-align:center; padding:3rem; color:var(--warm-gray); font-style:italic; }
+
+  /* HORARIOS */
+  .horario-day { background:var(--white); border-radius:12px; padding:1.2rem; margin-bottom:0.8rem; box-shadow:0 2px 10px rgba(42,26,20,0.06); }
+  .horario-day-name { font-family:'Cormorant Garamond',serif; font-size:1.2rem; margin-bottom:0.6rem; }
+  .horario-ranges { display:flex; flex-direction:column; gap:0.5rem; }
+  .horario-range-row { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
+  .horario-time-input { border:1.5px solid var(--light-gray); border-radius:8px; padding:0.5rem 0.7rem; font-family:'DM Sans',sans-serif; font-size:0.85rem; outline:none; background:var(--cream); transition:border-color 0.2s; }
+  .horario-time-input:focus { border-color:var(--rose); }
+  .horario-remove-btn { background:none; border:1.5px solid var(--red); color:var(--red); border-radius:8px; padding:0.4rem 0.7rem; cursor:pointer; font-size:0.8rem; transition:all 0.2s; }
+  .horario-remove-btn:hover { background:var(--red); color:white; }
+  .horario-add-btn { background:none; border:1.5px dashed var(--light-gray); color:var(--warm-gray); border-radius:8px; padding:0.5rem 1rem; cursor:pointer; font-size:0.8rem; transition:all 0.2s; align-self:flex-start; }
+  .horario-add-btn:hover { border-color:var(--rose); color:var(--rose); }
+  .horario-closed-toggle { display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--warm-gray); margin-bottom:0.5rem; }
+  .horario-save-bar { position:sticky; bottom:1rem; background:var(--white); border-radius:12px; padding:1rem; box-shadow:0 4px 20px rgba(42,26,20,0.15); margin-top:1rem; display:flex; gap:1rem; align-items:center; }
   /* BLOCK CALENDAR */
   .bcal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem; }
   .bcal-month-title { font-family:'Cormorant Garamond',serif; font-size:1.2rem; }
@@ -230,7 +244,8 @@ var app = {
   blockSelected: [],
   clientas: [],
   clientaSearch: '',
-  clientaEditing: null
+  clientaEditing: null,
+  schedule: null
 };
 
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -351,6 +366,46 @@ function renderClientas() {
     +'</div>';
 }
 
+
+function minsToTime(m) { return pad(Math.floor(m/60))+':'+pad(m%60); }
+function timeToMinsAdmin(t) { var p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]||0); }
+
+var FULL_DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+function renderHorarios() {
+  var sched = app.schedule || JSON.parse(JSON.stringify(SCHEDULE));
+  var order = [1,2,3,4,5,6,0]; // Lunes a Domingo
+  var daysHtml = order.map(function(dow){
+    var ranges = sched[dow] || [];
+    var isClosed = ranges.length === 0;
+    var rangesHtml = ranges.map(function(r, idx){
+      return '<div class="horario-range-row" data-dow="'+dow+'" data-idx="'+idx+'">'
+        +'<input type="time" class="horario-time-input" data-field="start" value="'+minsToTime(r[0])+'">'
+        +'<span>a</span>'
+        +'<input type="time" class="horario-time-input" data-field="end" value="'+minsToTime(r[1])+'">'
+        +'<button class="horario-remove-btn" data-action="remove">Quitar</button>'
+        +'</div>';
+    }).join('');
+    return '<div class="horario-day" data-dow="'+dow+'">'
+      +'<div class="horario-day-name">'+FULL_DAY_NAMES[dow]+'</div>'
+      +'<label class="horario-closed-toggle"><input type="checkbox" data-action="toggle-closed" data-dow="'+dow+'" '+(isClosed?'checked':'')+'> Cerrado este día</label>'
+      +'<div class="horario-ranges" data-dow-ranges="'+dow+'" style="'+(isClosed?'display:none':'')+'">'
+      +rangesHtml
+      +'<button class="horario-add-btn" data-action="add" data-dow="'+dow+'">+ Añadir franja horaria</button>'
+      +'</div></div>';
+  }).join('');
+
+  return '<div class="block-section">'
+    +'<div class="block-title">Horarios de trabajo</div>'
+    +'<div class="block-sub">Edita tus franjas horarias por día. Los cambios se aplicarán al calendario de reservas.</div>'
+    +daysHtml
+    +'<div class="horario-save-bar">'
+    +'<button class="btn-primary" id="saveHorariosBtn" style="flex:1">💾 Guardar horarios</button>'
+    +'<button class="btn-secondary" id="resetHorariosBtn" style="width:auto;padding:0 1.2rem">Restablecer</button>'
+    +'</div>'
+    +'</div>';
+}
+
 function render() {
   document.getElementById('root').innerHTML = app.loggedIn ? renderAdmin() : renderLogin();
   bindEvents();
@@ -377,6 +432,8 @@ function renderAdmin() {
     inner = renderLista();
   } else if (app.tab==='clientas') {
     inner = renderClientas();
+  } else if (app.tab==='horarios') {
+    inner = renderHorarios();
   } else {
     inner = renderBloquear();
   }
@@ -404,6 +461,7 @@ function renderAdmin() {
     +'<button class="tab'+(app.tab==='lista'?' active':'')+'" data-tab="lista">📋 Todas las citas</button>'
     +'<button class="tab'+(app.tab==='bloquear'?' active':'')+'" data-tab="bloquear">🚫 Bloquear días</button>'
     +'<button class="tab'+(app.tab==='clientas'?' active':'')+'" data-tab="clientas">💅 Fichas clientas</button>'
+    +'<button class="tab'+(app.tab==='horarios'?' active':'')+'" data-tab="horarios">🕐 Horarios</button>'
     +'</div>'
     +inner
     +'</div>'
@@ -696,6 +754,84 @@ function bindEvents() {
       e.stopPropagation();
       if (confirm('¿Cancelar esta cita?')) cancelFromAgenda(btn.dataset.id);
     });
+  });
+
+  // Horarios
+  if (!app.schedule) app.schedule = JSON.parse(JSON.stringify(SCHEDULE));
+
+  document.querySelectorAll('[data-action="toggle-closed"]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      var dow = parseInt(cb.dataset.dow);
+      if (cb.checked) {
+        app.schedule[dow] = [];
+      } else {
+        app.schedule[dow] = [[600,1200]]; // default 10:00-20:00 if reopening
+      }
+      render();
+    });
+  });
+
+  document.querySelectorAll('.horario-time-input').forEach(function(inp){
+    inp.addEventListener('change', function(){
+      var row = inp.closest('.horario-range-row');
+      var dow = parseInt(row.dataset.dow);
+      var idx = parseInt(row.dataset.idx);
+      var field = inp.dataset.field;
+      var mins = timeToMinsAdmin(inp.value);
+      if (field==='start') app.schedule[dow][idx][0] = mins;
+      else app.schedule[dow][idx][1] = mins;
+    });
+  });
+
+  document.querySelectorAll('.horario-remove-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var row = btn.closest('.horario-range-row');
+      var dow = parseInt(row.dataset.dow);
+      var idx = parseInt(row.dataset.idx);
+      app.schedule[dow].splice(idx,1);
+      render();
+    });
+  });
+
+  document.querySelectorAll('.horario-add-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var dow = parseInt(btn.dataset.dow);
+      if (!app.schedule[dow]) app.schedule[dow] = [];
+      app.schedule[dow].push([960, 1230]); // default 16:00-20:30
+      render();
+    });
+  });
+
+  var saveHBtn = document.getElementById('saveHorariosBtn');
+  if (saveHBtn) saveHBtn.addEventListener('click', function(){
+    saveHBtn.textContent = 'Guardando...'; saveHBtn.disabled = true;
+    var configStr = JSON.stringify(app.schedule);
+    // First try to get existing row, delete all, then insert fresh
+    fetch(SHEETDB_URL+'/all?sheet=Horarios', { method:'DELETE', headers:{'Accept':'application/json'} })
+      .catch(function(){})
+      .then(function(){
+        return fetch(SHEETDB_URL+'?sheet=Horarios', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Accept':'application/json'},
+          body: JSON.stringify({data:[{Config: configStr}]})
+        });
+      })
+      .then(function(){
+        saveHBtn.textContent = '✓ Guardado';
+        setTimeout(function(){ saveHBtn.textContent='💾 Guardar horarios'; saveHBtn.disabled=false; }, 1500);
+      })
+      .catch(function(){
+        saveHBtn.textContent='💾 Guardar horarios'; saveHBtn.disabled=false;
+        alert('Error al guardar. Comprueba que existe la hoja "Horarios" con columna "Config".');
+      });
+  });
+
+  var resetHBtn = document.getElementById('resetHorariosBtn');
+  if (resetHBtn) resetHBtn.addEventListener('click', function(){
+    if (confirm('¿Restablecer al horario original?')) {
+      app.schedule = JSON.parse(JSON.stringify(SCHEDULE));
+      render();
+    }
   });
 
   // Cancel buttons (lista)

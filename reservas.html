@@ -154,6 +154,16 @@ function loadData(cb) {
     .then(function(r){ return r.json(); })
     .then(function(bloqueados) {
       state.blockedDays = (bloqueados || []).map(function(b){ return b.Fecha || b.fecha || ''; }).filter(Boolean);
+      return fetch(SHEETDB_URL+'?sheet=Horarios');
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(horarios) {
+      if (horarios && horarios.length > 0 && horarios[0].Config) {
+        try {
+          var customSchedule = JSON.parse(horarios[0].Config);
+          CONFIG.schedule = customSchedule;
+        } catch(e) { /* keep default */ }
+      }
       showLoading(false);
       if (cb) cb();
     })
@@ -223,16 +233,56 @@ function getSlots(dateStr, dur) {
   var now = new Date();
   var todayStr = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
   var nowMins = (dateStr === todayStr) ? now.getHours()*60 + now.getMinutes() : 0;
+
+  // Citas existentes ese día, ordenadas por hora
+  var dayBookings = state.bookedSlots.filter(function(b){ return b.Fecha===dateStr; })
+    .map(function(b){
+      var start = timeToMins(b.Hora);
+      var bDur = parseInt(b['Duración']||b.Duracion||'60') || 60;
+      return {start:start, end:start+bDur};
+    }).sort(function(a,b){return a.start-b.start;});
+
   for (var r=0;r<ranges.length;r++) {
-    var cur=ranges[r][0], end=ranges[r][1];
-    while (cur+dur<=end) {
-      if (cur >= nowMins) { // solo mostrar horas futuras
-        var t=pad(Math.floor(cur/60))+':'+pad(cur%60);
-        slots.push({time:t, taken:isSlotTaken(dateStr,t,dur)});
+    var rangeStart=ranges[r][0], rangeEnd=ranges[r][1];
+
+    // Construir lista de huecos libres dentro de esta franja
+    var freeGaps = [];
+    var cursor = rangeStart;
+    dayBookings.forEach(function(b){
+      if (b.start > cursor && b.start <= rangeEnd) {
+        freeGaps.push({start:cursor, end:Math.min(b.start, rangeEnd)});
       }
-      cur+=dur;
-    }
+      if (b.end > cursor) cursor = Math.max(cursor, Math.min(b.end, rangeEnd));
+    });
+    if (cursor < rangeEnd) freeGaps.push({start:cursor, end:rangeEnd});
+
+    // Para cada hueco libre, generar horarios de inicio posibles
+    freeGaps.forEach(function(gap){
+      var cur = gap.start;
+      // Si el hueco es exactamente del tamaño del servicio (o algo más), ofrecer empezar ahí
+      while (cur + dur <= gap.end) {
+        if (cur >= nowMins) {
+          var t = pad(Math.floor(cur/60))+':'+pad(cur%60);
+          if (!slots.some(function(s){return s.time===t;})) {
+            slots.push({time:t, taken:false});
+          }
+        }
+        cur += dur;
+      }
+      // Si el hueco es más pequeño que dur pero el servicio cabría empezando al inicio
+      // ya está cubierto arriba. Si el hueco es más grande, también ofrecer la opción
+      // de empezar de forma que termine justo al final del hueco (aprovechar huecos sueltos)
+      var altStart = gap.end - dur;
+      if (altStart > gap.start && altStart >= nowMins && altStart + dur <= gap.end) {
+        var t2 = pad(Math.floor(altStart/60))+':'+pad(altStart%60);
+        if (!slots.some(function(s){return s.time===t2;})) {
+          slots.push({time:t2, taken:false});
+        }
+      }
+    });
   }
+
+  slots.sort(function(a,b){ return timeToMins(a.time)-timeToMins(b.time); });
   return slots;
 }
 

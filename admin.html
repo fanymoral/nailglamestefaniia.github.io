@@ -749,33 +749,64 @@ function renderBloquear() {
     var date = new Date(by, bm, d);
     var ds = by+'-'+pad(bm+1)+'-'+pad(d);
     var isPast = date < today;
-    var isBlocked = app.blockedDays.indexOf(ds) >= 0;
+    var fullBlocked = app.blockedDays.indexOf(ds) >= 0;
+    var amBlocked = app.blockedDays.indexOf(ds+'_AM') >= 0;
+    var pmBlocked = app.blockedDays.indexOf(ds+'_PM') >= 0;
+    var isPartial = (amBlocked || pmBlocked) && !fullBlocked;
     var sel = app.blockSelected || [];
     var isSelected = sel.indexOf(ds) >= 0;
     var cls = 'bcal-day';
     if (isPast) cls += ' bcal-past';
-    else if (isBlocked) cls += ' bcal-blocked';
+    else if (fullBlocked) cls += ' bcal-blocked';
+    else if (isPartial) cls += ' bcal-partial';
     else if (isSelected) cls += ' bcal-selected';
     else cls += ' bcal-open';
     if (date.getTime()===today.getTime()) cls += ' bcal-today';
-    cells += '<div class="'+cls+'"'+(isPast||isBlocked?'':' data-bdate="'+ds+'"')+'>'+d+(isBlocked?'<span class="bcal-x">🔒</span>':'')+'</div>';
+    var marker = fullBlocked ? '<span class="bcal-x">🔒</span>' : (isPartial ? '<span class="bcal-x">'+(amBlocked&&pmBlocked?'🔒':(amBlocked?'☀️':'🌙'))+'</span>' : '');
+    cells += '<div class="'+cls+'"'+(isPast||fullBlocked?'':' data-bdate="'+ds+'"')+'>'+d+marker+'</div>';
   }
   var selArr = app.blockSelected || [];
   var selHtml = selArr.length ? '<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--warm-gray)">'+selArr.length+' día(s) seleccionado(s): '+selArr.map(fmtDate).join(', ')+'</div>' : '';
-  var blockedTagsHtml = app.blockedDays.length
-    ? '<div class="blocked-list">'+app.blockedDays.slice().sort().map(function(ds){ return '<div class="blocked-tag">'+fmtDate(ds)+'<button data-unblock="'+ds+'">×</button></div>'; }).join('')+'</div>'
-    : '<div style="color:var(--warm-gray);font-size:0.8rem;margin-top:0.5rem">No hay días bloqueados</div>';
+
+  // Build blocked list - separate full days and partial
+  var allBlocked = app.blockedDays.slice();
+  var fullDays = allBlocked.filter(function(b){ return !b.endsWith('_AM') && !b.endsWith('_PM'); });
+  var partialDays = {};
+  allBlocked.forEach(function(b){
+    if (b.endsWith('_AM')) { var d=b.replace('_AM',''); partialDays[d]=partialDays[d]||{}; partialDays[d].am=true; }
+    if (b.endsWith('_PM')) { var d=b.replace('_PM',''); partialDays[d]=partialDays[d]||{}; partialDays[d].pm=true; }
+  });
+
+  var tagsHtml = '';
+  fullDays.sort().forEach(function(ds){
+    tagsHtml += '<div class="blocked-tag">'+fmtDate(ds)+' (día completo)<button data-unblock="'+ds+'">×</button></div>';
+  });
+  Object.keys(partialDays).sort().forEach(function(ds){
+    var p = partialDays[ds];
+    var label = (p.am&&p.pm) ? 'mañana y tarde' : (p.am ? 'mañana' : 'tarde');
+    var unblockKeys = [];
+    if (p.am) unblockKeys.push(ds+'_AM');
+    if (p.pm) unblockKeys.push(ds+'_PM');
+    tagsHtml += '<div class="blocked-tag">'+fmtDate(ds)+' ('+label+')<button data-unblock-multi="'+unblockKeys.join(',')+'">×</button></div>';
+  });
+  var blockedTagsHtml = tagsHtml ? '<div class="blocked-list">'+tagsHtml+'</div>' : '<div style="color:var(--warm-gray);font-size:0.8rem;margin-top:0.5rem">No hay días bloqueados</div>';
+
   return '<div class="block-section">'
     +'<div class="block-title">Bloquear días</div>'
-    +'<div class="block-sub">Pulsa días para seleccionarlos. Puedes seleccionar varios a la vez, bloquear la semana completa o el mes entero.</div>'
+    +'<div class="block-sub">Pulsa días para seleccionarlos. Puedes bloquear el día completo, solo la mañana o solo la tarde.</div>'
     +'<div class="bcal-nav"><button class="nav-btn" id="bPrevM">&#8249;</button><div class="bcal-month-title">'+mNames[bm]+' '+by+'</div><button class="nav-btn" id="bNextM">&#8250;</button></div>'
     +'<div class="bcal-grid">'+dNames.map(function(n){return '<div class="bcal-dayname">'+n+'</div>';}).join('')+cells+'</div>'
     +selHtml
+    +'<div class="agenda-legend" style="margin-top:0.5rem"><div class="legend-item-svc"><span>🔒</span>Día completo bloqueado</div><div class="legend-item-svc"><span>☀️</span>Mañana bloqueada</div><div class="legend-item-svc"><span>🌙</span>Tarde bloqueada</div></div>'
     +'<div class="block-actions">'
     +'<button class="block-btn" id="blockWeekBtn">Bloquear semana actual</button>'
     +'<button class="block-btn" id="blockMonthBtn">Bloquear mes completo</button>'
-    +'<button class="block-btn block-btn-confirm" id="blockSelectedBtn" '+(selArr.length?'':'disabled')+'>&#128274; Bloquear seleccionados ('+selArr.length+')</button>'
     +'<button class="block-btn block-btn-clear" id="clearSelBtn" '+(selArr.length?'':'disabled')+'>Limpiar seleccion</button>'
+    +'</div>'
+    +'<div class="block-actions" style="margin-top:0.5rem">'
+    +'<button class="block-btn block-btn-confirm" id="blockFullBtn" '+(selArr.length?'':'disabled')+'>🔒 Día completo ('+selArr.length+')</button>'
+    +'<button class="block-btn" id="blockAMBtn" style="background:var(--gold)" '+(selArr.length?'':'disabled')+'>☀️ Solo mañana ('+selArr.length+')</button>'
+    +'<button class="block-btn" id="blockPMBtn" style="background:var(--dark-rose)" '+(selArr.length?'':'disabled')+'>🌙 Solo tarde ('+selArr.length+')</button>'
     +'</div>'
     +'<div style="margin-top:1.5rem"><div class="block-title" style="font-size:1.1rem">Dias bloqueados</div>'
     +'<div style="font-size:0.78rem;color:var(--warm-gray);margin-bottom:0.8rem">Pulsa x para desbloquear</div>'
@@ -1003,14 +1034,13 @@ function bindEvents() {
     }
     render();
   });
-  var bsBtn = document.getElementById('blockSelectedBtn');
-  if (bsBtn) bsBtn.addEventListener('click', function(){
-    var sel = app.blockSelected || [];
-    if (!sel.length) return;
-    bsBtn.disabled = true;
-    bsBtn.textContent = 'Guardando...';
+  function blockDaysBatch(keys, btn) {
+    if (!keys.length) return;
+    btn.disabled = true;
+    var orig = btn.textContent;
+    btn.textContent = 'Guardando...';
     function blockNext(i) {
-      if (i >= sel.length) {
+      if (i >= keys.length) {
         app.blockSelected = [];
         loadData();
         return;
@@ -1018,13 +1048,40 @@ function bindEvents() {
       fetch(SHEETDB_URL+'?sheet=Bloqueados', {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-        body: JSON.stringify({data: {Fecha: sel[i]}})
+        body: JSON.stringify({data: {Fecha: keys[i]}})
       })
       .then(function(r){ return r.json(); })
       .then(function(){ blockNext(i+1); })
       .catch(function(){ blockNext(i+1); });
     }
     blockNext(0);
+  }
+
+  var bfBtn = document.getElementById('blockFullBtn');
+  if (bfBtn) bfBtn.addEventListener('click', function(){
+    var sel = app.blockSelected || [];
+    blockDaysBatch(sel, bfBtn);
+  });
+
+  var bamBtn = document.getElementById('blockAMBtn');
+  if (bamBtn) bamBtn.addEventListener('click', function(){
+    var sel = app.blockSelected || [];
+    var keys = sel.map(function(ds){ return ds+'_AM'; });
+    blockDaysBatch(keys, bamBtn);
+  });
+
+  var bpmBtn = document.getElementById('blockPMBtn');
+  if (bpmBtn) bpmBtn.addEventListener('click', function(){
+    var sel = app.blockSelected || [];
+    var keys = sel.map(function(ds){ return ds+'_PM'; });
+    blockDaysBatch(keys, bpmBtn);
+  });
+
+  document.querySelectorAll('[data-unblock-multi]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var keys = btn.dataset.unblockMulti.split(',');
+      keys.forEach(function(k){ unblockDay(k); });
+    });
   });
   var csBtn = document.getElementById('clearSelBtn');
   if (csBtn) csBtn.addEventListener('click', function(){ app.blockSelected=[]; render(); });

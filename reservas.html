@@ -222,19 +222,8 @@ function isDayBlocked(dateStr) {
 function isDayOpen(dow){ return (CONFIG.schedule[dow]||[]).length > 0; }
 
 function isDayFull(dateStr) {
-  // Check if there are any free slots for the selected service duration
-  var dur = state.services.reduce(function(a,s){return a+s.duration;},0) || 30;
-  var dow = new Date(dateStr+'T12:00:00').getDay();
-  var ranges = CONFIG.schedule[dow] || [];
-  for (var r=0; r<ranges.length; r++) {
-    var cur = ranges[r][0], end = ranges[r][1];
-    while (cur + dur <= end) {
-      var t = pad(Math.floor(cur/60))+':'+pad(cur%60);
-      if (!isSlotTaken(dateStr, t, dur)) return false;
-      cur += dur;
-    }
-  }
-  return true;
+  var slots = getSlots(dateStr, state.services.reduce(function(a,s){return a+s.duration;},0) || 30);
+  return slots.length === 0;
 }
 function getSlots(dateStr, dur) {
   var slots=[], dow=new Date(dateStr+'T12:00:00').getDay(), ranges=CONFIG.schedule[dow]||[];
@@ -242,6 +231,11 @@ function getSlots(dateStr, dur) {
   var now = new Date();
   var todayStr = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
   var nowMins = (dateStr === todayStr) ? now.getHours()*60 + now.getMinutes() : 0;
+
+  // Bloqueo parcial de mañana/tarde (mañana = antes de 14:00, tarde = desde 14:00)
+  var amBlocked = state.blockedDays.indexOf(dateStr+'_AM') >= 0;
+  var pmBlocked = state.blockedDays.indexOf(dateStr+'_PM') >= 0;
+  var SPLIT = 14*60; // 14:00 divide mañana/tarde
 
   // Citas existentes ese día, ordenadas por hora
   var dayBookings = state.bookedSlots.filter(function(b){ return b.Fecha===dateStr; })
@@ -253,6 +247,15 @@ function getSlots(dateStr, dur) {
 
   for (var r=0;r<ranges.length;r++) {
     var rangeStart=ranges[r][0], rangeEnd=ranges[r][1];
+
+    // Si toda la franja está en la mañana y la mañana está bloqueada, saltar
+    if (amBlocked && rangeEnd <= SPLIT) continue;
+    // Si toda la franja está en la tarde y la tarde está bloqueada, saltar
+    if (pmBlocked && rangeStart >= SPLIT) continue;
+    // Si la franja cruza el mediodía y una mitad está bloqueada, recortar
+    if (amBlocked && rangeStart < SPLIT) rangeStart = SPLIT;
+    if (pmBlocked && rangeEnd > SPLIT) rangeEnd = SPLIT;
+    if (rangeStart >= rangeEnd) continue;
 
     // Construir lista de huecos libres dentro de esta franja
     var freeGaps = [];

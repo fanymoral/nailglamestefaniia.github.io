@@ -386,7 +386,8 @@ function renderSuccess() {
 }
 
 function bind() {
-  var INCOMPATIBLE_PAIRS = [['acrigel','relleno-acri']];
+  // Servicios "base" alternativos entre sí: solo uno de estos a la vez
+  var BASE_SERVICES = ['semi','gel','acrigel','relleno-acri'];
   document.querySelectorAll('.service-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       var svc=CONFIG.services.find(function(s){return s.id===btn.dataset.sid;});
@@ -394,18 +395,14 @@ function bind() {
       if (idx>=0) {
         state.services.splice(idx,1);
       } else {
-        // Check incompatibilities
-        var blocked = false;
-        INCOMPATIBLE_PAIRS.forEach(function(pair){
-          if (pair.indexOf(svc.id)>=0) {
-            var otherId = pair.find(function(id){return id!==svc.id;});
-            if (state.services.some(function(s){return s.id===otherId;})) {
-              alert('No puedes seleccionar Acrigel y Relleno de Acrigel a la vez, ya que son servicios alternativos. Elige solo uno.');
-              blocked = true;
-            }
+        if (BASE_SERVICES.indexOf(svc.id)>=0) {
+          var otherBase = state.services.find(function(s){ return BASE_SERVICES.indexOf(s.id)>=0; });
+          if (otherBase) {
+            alert('"'+svc.name+'" y "'+otherBase.name+'" son servicios alternativos, solo puedes elegir uno de los dos. Si quieres cambiar, primero quita "'+otherBase.name+'".');
+            return;
           }
-        });
-        if (!blocked) state.services.push(svc);
+        }
+        state.services.push(svc);
       }
       state.date=null; state.time=null;
       render();

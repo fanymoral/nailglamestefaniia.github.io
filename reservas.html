@@ -443,6 +443,23 @@ function bind() {
     if (!n||!p){ alert('Por favor, rellena tu nombre y teléfono.'); return; }
     state.name=n; state.phone=p; state.notes=document.getElementById('iNotes').value.trim();
     state.firstTime=document.getElementById('iFirstTime').checked;
+
+    // Check for existing active appointment with same phone, in the future
+    var today = new Date(); today.setHours(0,0,0,0);
+    var todayStr = today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
+    var phoneDigits = p.replace(/\D/g,'');
+    var existing = state.bookedSlots.find(function(b){
+      var bTel = (b['Teléfono']||b.Telefono||'').replace(/\D/g,'');
+      return bTel === phoneDigits && b.Fecha >= todayStr && b.Estado !== 'cancelada';
+    });
+
+    if (existing) {
+      var msg = '⚠️ Ya tienes una cita pendiente el '+existing.Fecha+' a las '+existing.Hora+' ('+existing.Servicio+').\n\n'
+        +'Si quieres cambiarla, primero cancela esa cita escribiéndome por WhatsApp, y luego reserva la nueva.\n\n'
+        +'¿Quieres continuar igualmente y reservar otra cita adicional?';
+      if (!confirm(msg)) return;
+    }
+
     state.step=4; render();
   });
   var bk3=document.getElementById('back3');

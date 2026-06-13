@@ -341,8 +341,10 @@ function renderStep3() {
   return '<div class="card"><div class="card-title">Tus datos<small>Para confirmar y recordarte la cita</small></div>'
     +'<div class="form-row"><label class="form-label">Nombre y apellidos *</label><input class="form-input" id="iName" type="text" placeholder="Ej: Laura García" value="'+state.name+'" maxlength="60"></div>'
     +'<div class="form-row"><label class="form-label">Teléfono (WhatsApp) *</label><input class="form-input" id="iPhone" type="tel" placeholder="Ej: 612 345 678" value="'+state.phone+'" maxlength="20"></div>'
+    +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iFirstTime" '+(state.firstTime?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> ✨ Es mi primera vez contigo</label></div>'
     +'<div class="form-row"><label class="form-label">¿Algo que deba saber? (opcional)</label><textarea class="form-input" id="iNotes" placeholder="Alergias, preferencias de color...">'+state.notes+'</textarea></div>'
     +'<div class="info-banner"><strong>📋 Política de cancelación:</strong> Si necesitas cancelar o cambiar tu cita, avísame con al menos <strong>24 horas de antelación</strong> por WhatsApp. Las inasistencias repetidas sin aviso pueden afectar a futuras reservas. ¡Gracias por tu comprensión! 💕</div>'
+    +'<div class="info-banner" style="margin-top:0.6rem"><strong>⏰ Puntualidad:</strong> Si llegas con más de 15 minutos de retraso, puede que tengamos que reprogramar tu cita para no afectar a otras clientas.</div>'
     +'<div class="info-banner" style="margin-top:0.6rem"><strong>📱 Confirmación:</strong> Al confirmar recibirás un resumen para enviarme por WhatsApp.</div>'
     +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn3">Revisar cita →</button><button class="btn-secondary" id="back3">← Volver</button></div></div>';
 }
@@ -350,12 +352,20 @@ function renderStep3() {
 function renderStep4() {
   var d=new Date(state.date+'T12:00:00');
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
-  var svcPrices=state.services.map(function(s){return s.price;}).join(' + ');
   var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
-  var rows=[['Servicios',svcNames],['Precio',svcPrices],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',state.name],['Teléfono',state.phone]];
+  var totalPrice=state.services.reduce(function(sum,s){
+    var n = parseFloat((s.price.match(/[\d.,]+/)||['0'])[0].replace(',','.'));
+    return sum+n;
+  },0);
+  var rows=[['Servicios',svcNames],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',state.name],['Teléfono',state.phone]];
+  if (state.firstTime) rows.push(['Primera vez','✨ Sí']);
   if (state.notes) rows.push(['Notas',state.notes]);
   return '<div class="card"><div class="card-title">Confirmar cita<small>Revisa los detalles antes de reservar</small></div>'
     +'<div class="summary-block">'+rows.map(function(r){return '<div class="summary-row"><span class="sum-label">'+r[0]+'</span><span class="sum-value">'+r[1]+'</span></div>';}).join('')+'</div>'
+    +'<div style="text-align:center;background:linear-gradient(135deg,#FFF4F8,#FAF0FF);border:1.5px solid var(--blush);border-radius:14px;padding:1.2rem;margin-bottom:1.2rem;">'
+    +'<div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray);margin-bottom:0.3rem;">Total a pagar</div>'
+    +'<div style="font-family:Cormorant Garamond,serif;font-size:2.4rem;font-weight:400;color:var(--rose);">'+totalPrice.toFixed(0).replace('.0','')+'€</div>'
+    +'</div>'
     +'<button class="btn-primary" id="btnConfirm">✓ Confirmar reserva</button><button class="btn-secondary" id="back4">← Volver</button></div>';
 }
 
@@ -363,7 +373,9 @@ function renderSuccess() {
   var d=new Date(state.date+'T12:00:00');
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
   var msg=encodeURIComponent('¡Hola! Acabo de reservar una cita 💅\n\n📋 Servicio: '+svcNames+'\n📅 Fecha: '+formatDate(d)+'\n⏰ Hora: '+state.time+'\n👤 Nombre: '+state.name+'\n📱 Tel: '+state.phone+(state.notes?'\n📝 Notas: '+state.notes:'')+'\n\n¡Nos vemos pronto! ✨');
+  var welcomeMsg = state.firstTime ? '<p style="font-size:0.85rem;color:var(--rose);margin-bottom:0.8rem;">✨ ¡Qué ilusión tenerte por primera vez! Te vamos a cuidar muy bien 💕</p>' : '';
   return '<div class="card success-screen"><div class="success-icon">✓</div><div class="success-title">¡Reserva confirmada!</div>'
+    +welcomeMsg
     +'<p class="success-sub">Tu cita ha quedado reservada para el<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br><br>Te esperamos con mucha ilusión 💅</p>'
     +'<a href="https://wa.me/'+WHATSAPP+'?text='+msg+'" target="_blank" class="whatsapp-btn">💬 Confirmar por WhatsApp</a>'
     +'<div style="margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--light-gray);">'
@@ -374,12 +386,27 @@ function renderSuccess() {
 }
 
 function bind() {
+  var INCOMPATIBLE_PAIRS = [['acrigel','relleno-acri']];
   document.querySelectorAll('.service-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       var svc=CONFIG.services.find(function(s){return s.id===btn.dataset.sid;});
       var idx=state.services.findIndex(function(s){return s.id===svc.id;});
-      if (idx>=0) state.services.splice(idx,1);
-      else state.services.push(svc);
+      if (idx>=0) {
+        state.services.splice(idx,1);
+      } else {
+        // Check incompatibilities
+        var blocked = false;
+        INCOMPATIBLE_PAIRS.forEach(function(pair){
+          if (pair.indexOf(svc.id)>=0) {
+            var otherId = pair.find(function(id){return id!==svc.id;});
+            if (state.services.some(function(s){return s.id===otherId;})) {
+              alert('No puedes seleccionar Acrigel y Relleno de Acrigel a la vez, ya que son servicios alternativos. Elige solo uno.');
+              blocked = true;
+            }
+          }
+        });
+        if (!blocked) state.services.push(svc);
+      }
       state.date=null; state.time=null;
       render();
     });
@@ -415,6 +442,7 @@ function bind() {
     var p=document.getElementById('iPhone').value.trim();
     if (!n||!p){ alert('Por favor, rellena tu nombre y teléfono.'); return; }
     state.name=n; state.phone=p; state.notes=document.getElementById('iNotes').value.trim();
+    state.firstTime=document.getElementById('iFirstTime').checked;
     state.step=4; render();
   });
   var bk3=document.getElementById('back3');
@@ -441,7 +469,7 @@ function bind() {
         'Duración': totalDur+' min',
         Nombre: state.name,
         'Teléfono': state.phone,
-        Notas: state.notes,
+        Notas: (state.firstTime ? '✨ Primera vez. ' : '') + state.notes,
         'Reservada el': new Date().toLocaleString('es-ES'),
         Estado: 'confirmada'
       }})
@@ -453,7 +481,7 @@ function bind() {
   if (bk4) bk4.addEventListener('click',function(){ state.step=3; render(); });
   var bn=document.getElementById('btnNew');
   if (bn) bn.addEventListener('click',function(){
-    state.step=1; state.services=[]; state.date=null; state.time=null; state.name=''; state.phone=''; state.notes='';
+    state.step=1; state.services=[]; state.date=null; state.time=null; state.name=''; state.phone=''; state.notes=''; state.firstTime=false;
     render();
   });
 }

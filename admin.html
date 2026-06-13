@@ -563,13 +563,13 @@ function cancelFromAgenda(id) {
 function getSvcClass(serviceName) {
   if (!serviceName) return 'svc-other';
   var s = serviceName.toLowerCase();
-  if (s.indexOf('semipermanente') >= 0 && s.indexOf('retirada') < 0) return 'svc-semi';
-  if (s.indexOf('refuerzo') >= 0 || s.indexOf('gel') >= 0) return 'svc-gel';
-  if (s.indexOf('acrigel') >= 0 && s.indexOf('retirada') < 0) return 'svc-acrigel';
-  if (s.indexOf('pies') >= 0) return 'svc-pies';
-  if (s.indexOf('decoraci') >= 0) return 'svc-deco';
   if (s.indexOf('retirada') >= 0 && s.indexOf('semi') >= 0) return 'svc-ret-semi';
   if (s.indexOf('retirada') >= 0 && s.indexOf('acri') >= 0) return 'svc-ret-acri';
+  if (s.indexOf('acrigel') >= 0) return 'svc-acrigel';
+  if (s.indexOf('semipermanente') >= 0) return 'svc-semi';
+  if (s.indexOf('refuerzo') >= 0 || s.indexOf('gel') >= 0) return 'svc-gel';
+  if (s.indexOf('pies') >= 0) return 'svc-pies';
+  if (s.indexOf('decoraci') >= 0) return 'svc-deco';
   return 'svc-other';
 }
 

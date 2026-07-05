@@ -140,7 +140,9 @@ var CONFIG = {
     {id:"relleno-acri", name:"Relleno de Acrigel",     desc:"Mantenimiento y relleno de tu acrigel para mantenerlo perfecto",duration:90, price:"25€"},
     {id:"pies",     name:"Pies",                      desc:"Tratamiento y esmaltado de pies",           duration:30,  price:"18€"},
     {id:"pedicura", name:"Pedicura Spa",               desc:"Tratamiento completo de pies: jelly spa, lima en seco, exfoliación e hidratación profunda. No incluye esmaltado. Un lujo para tus pies 💆‍♀️", duration:45, price:"30€"},
-    {id:"deco",     name:"Decoración todas las uñas", desc:"Nail art personalizado en todas las uñas. Las 2 primeras uñas son gratuitas, a partir de la 3ª se cobra 0,50€ por uña. Precio total desde 7€",duration:30,  price:"7€"},
+    {id:"deco-basic", name:"Decoración básica",      desc:"Efecto cromado, línea, puntos, degradados, efecto glitter o 3D en una uña",                                                                         duration:0,  price:"2€"},
+    {id:"deco-mid",   name:"Decoración media",       desc:"Efecto mármol, flores, líneas geométricas en todas las uñas",                                                                                          duration:0,  price:"3€"},
+    {id:"deco-full",  name:"Nail art completo",       desc:"Diseños elaborados a mano, pedrería, perlas, efecto 3D, encapsulado de flores secas, combinación de múltiples técnicas o diseño totalmente personalizado", duration:30, price:"7€"},
     {id:"ret-semi", name:"Retirada Semipermanente",   desc:"Retirada segura del esmalte semipermanente",duration:30,  price:"7€"},
     {id:"ret-acri", name:"Retirada Acrigel",          desc:"Retirada completa de acrigel",              duration:30,  price:"10€"}
   ]
@@ -389,6 +391,7 @@ function renderSuccess() {
 function bind() {
   // Servicios "base" alternativos entre sí: solo uno de estos a la vez
   var BASE_SERVICES = ['semi','gel','acrigel','relleno-acri'];
+  var DECO_SERVICES = ['deco-basic','deco-mid','deco-full'];
   document.querySelectorAll('.service-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       var svc=CONFIG.services.find(function(s){return s.id===btn.dataset.sid;});
@@ -400,6 +403,13 @@ function bind() {
           var otherBase = state.services.find(function(s){ return BASE_SERVICES.indexOf(s.id)>=0; });
           if (otherBase) {
             alert('"'+svc.name+'" y "'+otherBase.name+'" son servicios alternativos, solo puedes elegir uno de los dos. Si quieres cambiar, primero quita "'+otherBase.name+'".');
+            return;
+          }
+        }
+        if (DECO_SERVICES.indexOf(svc.id)>=0) {
+          var otherDeco = state.services.find(function(s){ return DECO_SERVICES.indexOf(s.id)>=0; });
+          if (otherDeco) {
+            alert('Solo puedes elegir un nivel de decoración. Si quieres cambiar, primero quita "'+otherDeco.name+'".');
             return;
           }
         }

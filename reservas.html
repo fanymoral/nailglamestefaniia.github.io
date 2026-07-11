@@ -14,7 +14,9 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; }
   header { background: var(--espresso); color: var(--cream); text-align: center; padding: 2.5rem 1rem 2rem; position: relative; overflow: hidden; }
-  header::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(201,137,110,0.25) 0%, transparent 70%); }
+  header::before { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(42,26,20,0.6), rgba(42,26,20,0.8)); z-index: 0; }
+  header > * { position: relative; z-index: 1; }
+  .header-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; opacity: 0.35; z-index: 0; }
   .salon-name { font-family: 'Cormorant Garamond', serif; font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 300; letter-spacing: 0.12em; position: relative; }
   .salon-name span { font-style: italic; color: var(--blush); }
   .header-sub { font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); margin-top: 0.4rem; position: relative; }
@@ -109,6 +111,7 @@
 </head>
 <body>
 <header>
+  <img class="header-bg-img" src="https://fanymoral.github.io/nailglamestefaniia.github.io/IMG_9142.jpeg" alt="">
   <div class="salon-name">Nail Glam <span>Estefania</span></div>
   <div class="header-sub">Reserva tu cita online</div>
   <div class="nail-divider"><span>💅</span></div>
@@ -278,6 +281,18 @@ function getSlots(dateStr, dur) {
   return slots;
 }
 
+function bnChange(delta) {
+  var newVal = (state.brokenNails || 0) + delta;
+  if (newVal < 0) newVal = 0;
+  if (newVal > 10) newVal = 10;
+  state.brokenNails = newVal;
+  render();
+}
+function bnClose() {
+  state.showBrokenModal = false;
+  render();
+}
+
 function render() {
   document.querySelectorAll('.step').forEach(function(el){
     var s=parseInt(el.dataset.step);
@@ -329,12 +344,12 @@ function renderBrokenModal() {
     +'<div class="broken-modal-title">🔨 ¿Tienes alguna uña rota?</div>'
     +'<div class="broken-modal-sub">Cada uña rota tiene un coste de 1€.<br>Si son más de 4, se añaden 15 min a tu cita.</div>'
     +'<div class="bn-counter">'
-    +'<button class="bn-btn" id="bnMinus">−</button>'
+    +'<button class="bn-btn" onclick="bnChange(-1)">−</button>'
     +'<div class="bn-num">'+bn+'</div>'
-    +'<button class="bn-btn" id="bnPlus">+</button>'
+    +'<button class="bn-btn" onclick="bnChange(1)">+</button>'
     +'</div>'
     +'<div class="bn-cost">'+costText+'</div>'
-    +'<button class="btn-primary" id="bnConfirm">Confirmar</button>'
+    +'<button class="btn-primary" onclick="bnClose()">Confirmar</button>'
     +'</div></div>';
 }
 

@@ -13,10 +13,8 @@
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; }
-  header { background: var(--espresso); color: var(--cream); text-align: center; padding: 4rem 1rem 3rem; position: relative; overflow: hidden; }
-  header::before { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(42,26,20,0.6), rgba(42,26,20,0.8)); z-index: 0; }
-  header > * { position: relative; z-index: 1; }
-  .header-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 40%; opacity: 0.4; z-index: 0; }
+  header { background: var(--espresso); color: var(--cream); text-align: center; padding: 2.5rem 1rem 2rem; position: relative; overflow: hidden; }
+  header::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(201,137,110,0.25) 0%, transparent 70%); }
   .salon-name { font-family: 'Cormorant Garamond', serif; font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 300; letter-spacing: 0.12em; position: relative; }
   .salon-name span { font-style: italic; color: var(--blush); }
   .header-sub { font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); margin-top: 0.4rem; position: relative; }
@@ -111,7 +109,6 @@
 </head>
 <body>
 <header>
-  <img class="header-bg-img" src="https://fanymoral.github.io/nailglamestefaniia.github.io/IMG_9142.jpeg" alt="">
   <div class="salon-name">Nail Glam <span>Estefania</span></div>
   <div class="header-sub">Reserva tu cita online</div>
   <div class="nail-divider"><span>💅</span></div>
@@ -590,19 +587,24 @@ function bind() {
 
 function renderWelcomeModal() {
   return '<div class="welcome-modal-bg" id="welcomeModalBg">'
-    +'<div class="welcome-modal">'
-    +'<div class="welcome-modal-icon">💅✨</div>'
-    +'<div class="welcome-modal-title">¡Bienvenida a Nail Glam Estefania!</div>'
+    +'<div class="welcome-modal" style="max-width:420px;padding:0;overflow:hidden;">'
+    +'<div style="position:relative;height:220px;overflow:hidden;">'
+    +'<img src="https://fanymoral.github.io/nailglamestefaniia.github.io/IMG_9142.jpeg" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;" alt="Estefania">'
+    +'<div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(42,26,20,0.85));"></div>'
+    +'<div style="position:absolute;bottom:1rem;left:0;right:0;text-align:center;color:white;">'
+    +'<div style="font-family:Cormorant Garamond,serif;font-size:1.5rem;font-weight:300;">Nail Glam <em>Estefania</em></div>'
+    +'</div></div>'
+    +'<div style="padding:1.5rem;">'
     +'<div class="welcome-modal-text">'
     +'Reservar tu cita es muy fácil:<br><br>'
     +'<strong>1.</strong> Elige el servicio o servicios que quieres<br>'
     +'<strong>2.</strong> Selecciona el día y la hora que mejor te venga<br>'
     +'<strong>3.</strong> Rellena tus datos y confirma<br><br>'
-    +'¡Y listo! Te espero con muchas ganas 💕'
+    +'¡Te espero con muchas ganas! 💕'
     +'</div>'
     +'<button class="btn-primary" id="closeWelcomeBtn">Empezar a reservar</button>'
-    +'<a href="https://instagram.com/nailglam.estefania" target="_blank" class="ig-link">📷 Síguenos en Instagram</a>'
-    +'</div></div>';
+    +'<a href="https://instagram.com/nailglam.estefania" target="_blank" class="ig-link" style="margin-top:0.8rem;">📷 Sígueme en Instagram</a>'
+    +'</div></div></div>';
 }
 
 function checkWelcome() {

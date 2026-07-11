@@ -85,6 +85,15 @@
   .whatsapp-btn:hover { opacity: 0.9; }
   .info-banner { background: linear-gradient(135deg, #FFF4F8, #FFE8F2); border: 1px solid var(--blush); border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.78rem; color: var(--dark-rose); margin-top: 1rem; line-height: 1.5; }
   .loading-overlay { position: fixed; inset: 0; background: rgba(250,246,241,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
+  .broken-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:center; justify-content:center; z-index:998; padding:1rem; }
+  .broken-modal { background:var(--white); border-radius:20px; padding:2rem; max-width:360px; width:100%; text-align:center; animation:fadeUp 0.3s ease both; }
+  .broken-modal-title { font-family:'Cormorant Garamond',serif; font-size:1.5rem; margin-bottom:0.5rem; }
+  .broken-modal-sub { font-size:0.8rem; color:var(--warm-gray); margin-bottom:1.5rem; line-height:1.5; }
+  .bn-counter { display:flex; align-items:center; justify-content:center; gap:1.2rem; margin-bottom:1.5rem; }
+  .bn-btn { width:40px; height:40px; border-radius:50%; border:1.5px solid var(--light-gray); background:none; font-size:1.3rem; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; }
+  .bn-btn:hover { border-color:var(--rose); color:var(--rose); }
+  .bn-num { font-family:'Cormorant Garamond',serif; font-size:2.5rem; font-weight:300; min-width:40px; text-align:center; }
+  .bn-cost { font-size:0.85rem; color:var(--rose); font-weight:500; margin-bottom:1.2rem; min-height:1.2rem; }
   .spinner { width: 40px; height: 40px; border: 3px solid var(--light-gray); border-top-color: var(--rose); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -286,19 +295,47 @@ function render() {
 function renderStep1() {
   var btns=CONFIG.services.map(function(s){
     var sel=state.services.some(function(x){return x.id===s.id;})?' selected':'';
-    return '<button class="service-btn'+sel+'" data-sid="'+s.id+'"><div class="service-name">'+s.name+'</div><div class="service-detail">'+s.desc+' · '+s.duration+' min</div><div class="service-price">'+s.price+'</div></button>';
+    return '<button class="service-btn'+sel+'" data-sid="'+s.id+'"><div class="service-name">'+s.name+'</div><div class="service-detail">'+s.desc+(s.duration>0?' · '+s.duration+' min':'')+'</div><div class="service-price">'+s.price+'</div></button>';
   }).join('');
+
+  var hasSemi = state.services.some(function(s){ return s.id==='semi'; });
   var totalDur = state.services.reduce(function(a,s){return a+s.duration;},0);
+  if (hasSemi && state.brokenNails > 4) totalDur += 15;
   var totalPrice = state.services.map(function(s){return s.price;}).join(' + ');
+  if (state.brokenNails > 0) totalPrice += ' + '+state.brokenNails+'€ (uñas rotas)';
+
   var summaryHtml = state.services.length > 0
     ? '<div style="margin-top:1rem;background:var(--light-gray);border-radius:10px;padding:0.8rem 1rem;font-size:0.82rem;">'
       +'<strong>Seleccionados:</strong> '+state.services.map(function(s){return s.name;}).join(', ')
+      +(state.brokenNails>0?' + '+state.brokenNails+' uña(s) rota(s) (+'+state.brokenNails+'€)':'')
+      +(hasSemi?'&nbsp;&nbsp;<span style="color:var(--rose);cursor:pointer;text-decoration:underline;" id="editBnLink">✏️ Editar</span>':'')
       +'<br><strong>Duración total:</strong> '+totalDur+' min &nbsp;·&nbsp; <strong>Total:</strong> '+totalPrice
       +'</div>'
     : '';
+
+  var modalHtml = state.showBrokenModal ? renderBrokenModal() : '';
+
   return '<div class="card"><div class="card-title">Elige tus servicios<small>Puedes seleccionar más de uno</small></div><div class="services-grid">'+btns+'</div>'
     +summaryHtml
-    +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn1"'+(state.services.length?'':' disabled')+'>Continuar →</button></div></div>';
+    +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn1"'+(state.services.length?'':' disabled')+'>Continuar →</button></div></div>'
+    +modalHtml;
+}
+
+function renderBrokenModal() {
+  var bn = state.brokenNails || 0;
+  var costText = bn > 0 ? bn+'€ extra' + (bn > 4 ? ' + 15 min' : '') : 'Sin coste extra';
+  return '<div class="broken-modal-bg" id="brokenModalBg">'
+    +'<div class="broken-modal">'
+    +'<div class="broken-modal-title">🔨 ¿Tienes alguna uña rota?</div>'
+    +'<div class="broken-modal-sub">Cada uña rota tiene un coste de 1€.<br>Si son más de 4, se añaden 15 min a tu cita.</div>'
+    +'<div class="bn-counter">'
+    +'<button class="bn-btn" id="bnMinus">−</button>'
+    +'<div class="bn-num">'+bn+'</div>'
+    +'<button class="bn-btn" id="bnPlus">+</button>'
+    +'</div>'
+    +'<div class="bn-cost">'+costText+'</div>'
+    +'<button class="btn-primary" id="bnConfirm">Confirmar</button>'
+    +'</div></div>';
 }
 
 function renderStep2() {
@@ -360,7 +397,10 @@ function renderStep4() {
     var n = parseFloat((s.price.match(/[\d.,]+/)||['0'])[0].replace(',','.'));
     return sum+n;
   },0);
+  var bnExtra = state.brokenNails > 0 ? state.brokenNails+'€ extra ('+state.brokenNails+' uña(s) rota(s))' : '';
+  if (state.brokenNails > 4) totalDur += 15;
   var rows=[['Servicios',svcNames],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',state.name],['Teléfono',state.phone]];
+  if (bnExtra) rows.push(['Uñas rotas', bnExtra]);
   if (state.firstTime) rows.push(['Primera vez','✨ Sí']);
   if (state.notes) rows.push(['Notas',state.notes]);
   return '<div class="card"><div class="card-title">Confirmar cita<small>Revisa los detalles antes de reservar</small></div>'
@@ -414,11 +454,33 @@ function bind() {
           }
         }
         state.services.push(svc);
+        // Show broken nails modal when semi is selected
+        if (svc.id === 'semi') {
+          state.showBrokenModal = true;
+        }
       }
       state.date=null; state.time=null;
       render();
     });
   });
+  // Broken nails modal
+  var bnMinus = document.getElementById('bnMinus');
+  if (bnMinus) bnMinus.addEventListener('click', function(){
+    if (state.brokenNails > 0) { state.brokenNails--; render(); }
+  });
+  var bnPlus = document.getElementById('bnPlus');
+  if (bnPlus) bnPlus.addEventListener('click', function(){
+    if (state.brokenNails < 10) { state.brokenNails++; render(); }
+  });
+  var bnConfirm = document.getElementById('bnConfirm');
+  if (bnConfirm) bnConfirm.addEventListener('click', function(){
+    state.showBrokenModal = false; render();
+  });
+  var editBnLink = document.getElementById('editBnLink');
+  if (editBnLink) editBnLink.addEventListener('click', function(){
+    state.showBrokenModal = true; render();
+  });
+
   var b1=document.getElementById('btn1');
   if (b1) b1.addEventListener('click',function(){
     loadData(function(){ state.step=2; render(); });
@@ -494,7 +556,7 @@ function bind() {
         'Duración': totalDur+' min',
         Nombre: state.name,
         'Teléfono': state.phone,
-        Notas: (state.firstTime ? '✨ Primera vez. ' : '') + state.notes,
+        Notas: (state.firstTime ? '✨ Primera vez. ' : '') + (state.brokenNails>0 ? '🔨 '+state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
         'Reservada el': new Date().toLocaleString('es-ES'),
         Estado: 'confirmada'
       }})
@@ -506,7 +568,7 @@ function bind() {
   if (bk4) bk4.addEventListener('click',function(){ state.step=3; render(); });
   var bn=document.getElementById('btnNew');
   if (bn) bn.addEventListener('click',function(){
-    state.step=1; state.services=[]; state.date=null; state.time=null; state.name=''; state.phone=''; state.notes=''; state.firstTime=false;
+    state.step=1; state.services=[]; state.date=null; state.time=null; state.name=''; state.phone=''; state.notes=''; state.firstTime=false; state.brokenNails=0; state.showBrokenModal=false;
     render();
   });
 }

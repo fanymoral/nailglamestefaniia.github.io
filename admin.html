@@ -83,8 +83,8 @@
   .cita-servicio { font-size:0.78rem; color:var(--warm-gray); }
   .cita-tel { font-size:0.75rem; color:var(--warm-gray); margin-top:0.2rem; }
   .cita-actions { display:flex; gap:0.5rem; flex-wrap:wrap; }
-  .btn-wa { padding:0.4rem 0.8rem; background:#25D366; color:white; border:none; border-radius:8px; font-size:0.75rem; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:0.3rem; font-family:'DM Sans',sans-serif; }
-  .btn-cancel { padding:0.4rem 0.8rem; background:none; border:1.5px solid var(--red); color:var(--red); border-radius:8px; font-size:0.75rem; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
+  .btn-wa { padding:0.55rem 1rem; background:#25D366; color:white; border:none; border-radius:8px; font-size:0.78rem; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:0.3rem; font-family:'DM Sans',sans-serif; }
+  .btn-cancel { padding:0.55rem 1rem; background:none; border:1.5px solid var(--red); color:var(--red); border-radius:8px; font-size:0.78rem; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
   .btn-cancel:hover { background:var(--red); color:white; }
   .badge { display:inline-block; padding:0.2rem 0.6rem; border-radius:20px; font-size:0.65rem; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; }
   .badge-ok { background:#E8F5EE; color:var(--green); }
@@ -256,7 +256,8 @@ var app = {
   clientaSearch: '',
   clientaEditing: null,
   schedule: null,
-  statsMonth: null
+  statsMonth: null,
+  citaFilter: ''
 };
 
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -708,11 +709,23 @@ function renderLista() {
     +buildRecordList(citasManana, 'mañana', 'de mañana')
     +'</div>';
 
-  var sorted = app.citas.slice().sort(function(a,b){
+  // Filter
+  var filterVal = (app.citaFilter||'').toLowerCase();
+  var allCitas = app.citas.slice().sort(function(a,b){
     var da=a.Fecha+a.Hora, db=b.Fecha+b.Hora;
     return da>db?1:-1;
   });
-  if (!sorted.length) return recordHtml+'<div class="no-citas">No hay citas todavía.</div>';
+  var sorted = filterVal ? allCitas.filter(function(c){
+    return (c.Nombre||'').toLowerCase().indexOf(filterVal)>=0
+      || (c.Servicio||'').toLowerCase().indexOf(filterVal)>=0
+      || (c.Fecha||'').indexOf(filterVal)>=0
+      || (c['Teléfono']||c.Telefono||'').indexOf(filterVal)>=0;
+  }) : allCitas;
+  var filterHtml = '<div style="margin-bottom:1rem;">'
+    +'<input style="width:100%;border:1.5px solid var(--light-gray);border-radius:10px;padding:0.7rem 1rem;font-family:DM Sans,sans-serif;font-size:0.88rem;outline:none;background:var(--cream);" '
+    +'id="citaFilterInput" placeholder="🔍 Buscar por nombre, servicio, fecha o teléfono..." value="'+(app.citaFilter||'')+'">'
+    +'</div>';
+  if (!sorted.length) return recordHtml+filterHtml+'<div class="no-citas">No se encontraron citas.</div>';
   var items = sorted.map(function(c){
     var d = new Date(c.Fecha+'T12:00:00');
     var cancelled = c.Estado==='cancelada';
@@ -721,7 +734,7 @@ function renderLista() {
       +'<div class="cita-fecha"><div class="cf-day">'+d.getDate()+'</div><div class="cf-mon">'+MONTH_SHORT[d.getMonth()]+'</div></div>'
       +'<div class="cita-info">'
       +'<div class="cita-hora">'+c.Hora+'</div>'
-      +'<div class="cita-nombre">'+c.Nombre+' <span class="badge '+(cancelled?'badge-cancel':'badge-ok')+'">'+(cancelled?'Cancelada':'Confirmada')+'</span></div>'
+      +'<div class="cita-nombre">'+c.Nombre+' <span class="badge '+(cancelled?'badge-cancel':(completed?'badge-done':'badge-ok'))+'">'+(cancelled?'Cancelada':(completed?'✓ Completada':'Confirmada'))+'</span></div>'
       +'<div class="cita-servicio">'+c.Servicio+' · '+c.Precio+'</div>'
       +'<div class="cita-tel">📱 '+c.Telefono+(c.Notas?' · '+c.Notas:'')+'</div>'
       +'</div>'
@@ -731,7 +744,7 @@ function renderLista() {
       +'</div>'
       +'</div>';
   }).join('');
-  return recordHtml+'<div class="citas-list">'+items+'</div>';
+  return recordHtml+filterHtml+'<div class="citas-list">'+items+'</div>';
 }
 
 function renderBloquear() {
@@ -971,6 +984,19 @@ function bindEvents() {
         cancelCita(btn.dataset.cancelid);
       }
     });
+  });
+  document.querySelectorAll('.btn-done[data-doneid]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      fetch(SHEETDB_URL+'/ID/'+btn.dataset.doneid+'?sheet=Citas', {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body: JSON.stringify({data:{Estado:'completada'}})
+      }).then(function(){ loadData(); });
+    });
+  });
+  var citaFilterInput = document.getElementById('citaFilterInput');
+  if (citaFilterInput) citaFilterInput.addEventListener('input', function(){
+    app.citaFilter = this.value; render();
   });
 
   // Modal

@@ -632,16 +632,10 @@ function renderAgenda() {
         var topPct = ((startM - h*60) / 60) * 100;
         var heightPx = Math.max(dur * 60/60, 26);
         var svcCls = getSvcClass(c.Servicio);
-        var waMsg = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te recuerdo tu cita en Nail Glam Estefania el '+c.Fecha+' a las '+c.Hora+' para '+c.Servicio+'. ¡Te espero! ✨');
-        var tel = (c['Teléfono']||c.Telefono||'').replace(/[^0-9]/g,'');
         return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="top:'+topPct+'%;height:'+heightPx+'px">'
           +'<div class="aa-time">'+c.Hora+'</div>'
           +'<div class="aa-name">'+c.Nombre+'</div>'
           +'<div class="aa-service">'+c.Servicio+'</div>'
-          +'<div class="aa-btns" style="display:flex;gap:2px;margin-top:2px;">'
-          +'<a href="https://wa.me/'+tel+'?text='+waMsg+'" target="_blank" onclick="event.stopPropagation()" style="font-size:0.7rem;background:rgba(255,255,255,0.85);border-radius:4px;padding:3px 6px;color:#333;text-decoration:none;display:inline-block;">💬</a>'
-          +'<button class="aa-cancel-btn" data-id="'+c.ID+'" style="font-size:0.7rem;background:rgba(255,100,100,0.25);border:none;border-radius:4px;padding:3px 6px;cursor:pointer;color:#c00;">✕</button>'
-          +'</div>'
           +'</div>';
       }).join('');
 
@@ -828,19 +822,26 @@ function renderBloquear() {
 
 function renderModal() {
   var c = app.modal;
+  var tel = (c['Teléfono']||c.Telefono||'').replace(/[^0-9]/g,'');
+  var waReminder = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te recuerdo tu cita en Nail Glam Estefania el '+c.Fecha+' a las '+c.Hora+' para '+c.Servicio+'. ¡Te espero! ✨');
+  var waReview = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Espero que te haya encantado tu '+c.Servicio+'. Si tienes un momentito, me harías muchísima ilusión que dejaras una reseña en Google o que subieras una foto a Instagram etiquetándome @nailglam.estefania ✨ ¡Muchas gracias! 💕');
+  var isCancelled = c.Estado==='cancelada';
+  var isCompleted = c.Estado==='completada';
   return '<div class="modal-bg" id="modalBg">'
     +'<div class="modal">'
-    +'<div class="modal-title">Detalle de cita</div>'
-    +'<div class="modal-row"><span class="modal-label">Nombre</span><span>'+c.Nombre+'</span></div>'
-    +'<div class="modal-row"><span class="modal-label">Teléfono</span><span>'+c.Telefono+'</span></div>'
-    +'<div class="modal-row"><span class="modal-label">Fecha</span><span>'+fmtDate(c.Fecha)+'</span></div>'
-    +'<div class="modal-row"><span class="modal-label">Hora</span><span>'+c.Hora+'</span></div>'
+    +'<div class="modal-title">'+c.Nombre+'</div>'
+    +'<div class="modal-row"><span class="modal-label">Fecha</span><span>'+fmtDate(c.Fecha)+' · '+c.Hora+'</span></div>'
     +'<div class="modal-row"><span class="modal-label">Servicio</span><span>'+c.Servicio+'</span></div>'
     +'<div class="modal-row"><span class="modal-label">Precio</span><span>'+c.Precio+'</span></div>'
-    +(c.Notas?'<div class="modal-row"><span class="modal-label">Notas</span><span>'+c.Notas+'</span></div>':'')
-    +'<div class="modal-actions">'
-    +'<button class="modal-close" id="modalClose">Cerrar</button>'
-    +'<button class="modal-cancel" id="modalCancelBtn">Cancelar cita</button>'
+    +'<div class="modal-row"><span class="modal-label">Teléfono</span><span>'+tel+'</span></div>'
+    +(c.Notas?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+c.Notas+'</span></div>':'')
+    +'<div class="modal-row"><span class="modal-label">Estado</span><span>'+(isCancelled?'❌ Cancelada':(isCompleted?'✅ Completada':'✓ Confirmada'))+'</span></div>'
+    +'<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.2rem;">'
+    +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReminder+'" target="_blank" class="btn-wa" style="justify-content:center;padding:0.8rem;">💬 Enviar recordatorio</a>':'')
+    +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReview+'" target="_blank" class="btn-wa" style="background:#E8829F;justify-content:center;padding:0.8rem;">⭐ Pedir reseña</a>':'')
+    +(!isCancelled&&!isCompleted?'<button class="btn-done" id="modalDoneBtn" style="padding:0.8rem;">✓ Marcar como completada</button>':'')
+    +(!isCancelled&&!isCompleted?'<button class="modal-cancel" id="modalCancelBtn" style="padding:0.8rem;">✕ Cancelar cita</button>':'')
+    +'<button class="modal-close" id="modalClose" style="padding:0.8rem;">Cerrar</button>'
     +'</div></div></div>';
 }
 
@@ -1007,6 +1008,14 @@ function bindEvents() {
   var mcb = document.getElementById('modalCancelBtn');
   if (mcb) mcb.addEventListener('click', function(){
     if (confirm('¿Cancelar esta cita?')){ cancelCita(app.modal.ID); app.modal=null; }
+  });
+  var mdb = document.getElementById('modalDoneBtn');
+  if (mdb) mdb.addEventListener('click', function(){
+    fetch(SHEETDB_URL+'/ID/'+app.modal.ID+'?sheet=Citas', {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({data:{Estado:'completada'}})
+    }).then(function(){ app.modal=null; loadData(); });
   });
 
   // Bloquear calendar

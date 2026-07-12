@@ -408,9 +408,10 @@ function renderStep4() {
   var totalPrice=state.services.reduce(function(sum,s){
     var n = parseFloat((s.price.match(/[\d.,]+/)||['0'])[0].replace(',','.'));
     return sum+n;
-  },0);
+  },0) + (state.brokenNails || 0);
   var bnExtra = state.brokenNails > 0 ? state.brokenNails+'€ extra ('+state.brokenNails+' uña(s) rota(s))' : '';
   if (state.brokenNails > 4) totalDur += 15;
+  var totalPriceDisplay = Math.round(totalPrice)+'€';
   var rows=[['Servicios',svcNames],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',state.name],['Teléfono',state.phone]];
   if (bnExtra) rows.push(['Uñas rotas', bnExtra]);
   if (state.firstTime) rows.push(['Primera vez','✨ Sí']);
@@ -419,7 +420,7 @@ function renderStep4() {
     +'<div class="summary-block">'+rows.map(function(r){return '<div class="summary-row"><span class="sum-label">'+r[0]+'</span><span class="sum-value">'+r[1]+'</span></div>';}).join('')+'</div>'
     +'<div style="text-align:center;background:linear-gradient(135deg,#FFF4F8,#FAF0FF);border:1.5px solid var(--blush);border-radius:14px;padding:1.2rem;margin-bottom:1.2rem;">'
     +'<div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray);margin-bottom:0.3rem;">Total a pagar</div>'
-    +'<div style="font-family:Cormorant Garamond,serif;font-size:2.4rem;font-weight:400;color:var(--rose);">'+totalPrice.toFixed(0).replace('.0','')+'€</div>'
+    +'<div style="font-family:Cormorant Garamond,serif;font-size:2.4rem;font-weight:400;color:var(--rose);">'+totalPriceDisplay+'</div>'
     +'</div>'
     +'<button class="btn-primary" id="btnConfirm">✓ Confirmar reserva</button><button class="btn-secondary" id="back4">← Volver</button></div>';
 }

@@ -880,7 +880,7 @@ function bindEvents() {
   if (nw) nw.addEventListener('click', function(){ app.weekOffset++; render(); });
 
   // Cita click (agenda)
-  document.querySelectorAll('.week-appt[data-cid]').forEach(function(el){
+  document.querySelectorAll('.agenda-appt[data-cid]').forEach(function(el){
     el.addEventListener('click', function(){
       var id = el.dataset.cid;
       app.modal = app.citas.find(function(c){ return String(c.ID)===String(id); });

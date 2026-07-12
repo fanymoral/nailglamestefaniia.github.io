@@ -861,6 +861,22 @@ function bindEvents() {
   if (lo) lo.addEventListener('click', function(){ app.loggedIn=false; render(); });
 
   // Stat cards clickable
+  // Use event delegation on root for reliability
+  var root = document.getElementById('root');
+  if (root) {
+    root.onclick = function(e) {
+      var agendaAppt = e.target.closest('.agenda-appt[data-cid]');
+      if (agendaAppt) {
+        var id = agendaAppt.dataset.cid;
+        var found = app.citas.find(function(c){ return String(c.ID).trim()===String(id).trim(); });
+        if (found) { app.modal = found; render(); }
+        return;
+      }
+      var statCard = e.target.closest('#statHoy, #statProximas, #statTotal');
+      if (statCard) { app.tab='lista'; render(); return; }
+    };
+  }
+
   var sH = document.getElementById('statHoy');
   if (sH) sH.addEventListener('click', function(){ app.tab='lista'; render(); });
   var sP = document.getElementById('statProximas');
@@ -883,8 +899,9 @@ function bindEvents() {
   document.querySelectorAll('.agenda-appt[data-cid]').forEach(function(el){
     el.addEventListener('click', function(){
       var id = el.dataset.cid;
-      app.modal = app.citas.find(function(c){ return String(c.ID)===String(id); });
-      render();
+      var found = app.citas.find(function(c){ return String(c.ID)===String(id); });
+      if (!found) found = app.citas.find(function(c){ return String(c.ID).trim()===String(id).trim(); });
+      if (found) { app.modal = found; render(); }
     });
   });
   document.querySelectorAll('.aa-cancel-btn').forEach(function(btn){

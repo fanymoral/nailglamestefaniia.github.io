@@ -260,6 +260,7 @@ var app = {
   citaFilter: ''
 };
 
+function switchTab(t){ app.tab=t; render(); }
 function pad(n){ return String(n).padStart(2,'0'); }
 function fmtDate(ds) {
   var d=new Date(ds+'T12:00:00');
@@ -529,7 +530,7 @@ function renderAdmin() {
   var citasFuturas = citasActivas.filter(function(c){return c.Fecha>=todayStr;});
   var statsHtml = '<div class="stats">'
     +'<div class="stat-card" style="cursor:pointer" id="statHoy"><div class="stat-label">Citas hoy</div><div class="stat-value">'+citasHoy.length+'</div><div class="stat-sub">'+todayStr+'</div></div>'
-    +'<div class="stat-card" style="cursor:pointer" id="statProximas"><div class="stat-label">Próximas citas</div><div class="stat-value">'+citasFuturas.length+'</div><div class="stat-sub">Pulsa para ver</div></div>'
+    +'<div class="stat-card" style="cursor:pointer" id="statProximas"><div class="stat-label">Próximas citas</div><div class="stat-value">'+citasFuturas.length+'</div><div class="stat-sub" style="color:var(--rose);font-weight:500;">→ Ver todas</div></div>'
     +'<div class="stat-card" style="cursor:pointer" id="statTotal"><div class="stat-label">Total reservas</div><div class="stat-value">'+citasActivas.length+'</div><div class="stat-sub">Historial completo</div></div>'
     +'<div class="stat-card"><div class="stat-label">Días bloqueados</div><div class="stat-value">'+app.blockedDays.length+'</div><div class="stat-sub">Festivos / descanso</div></div>'
     +'</div>';
@@ -540,12 +541,12 @@ function renderAdmin() {
     +'<div class="container">'
     +statsHtml
     +'<div class="tabs">'
-    +'<button class="tab'+(app.tab==='agenda'?' active':'')+'" data-tab="agenda">📅 Agenda semanal</button>'
-    +'<button class="tab'+(app.tab==='lista'?' active':'')+'" data-tab="lista">📋 Todas las citas</button>'
-    +'<button class="tab'+(app.tab==='bloquear'?' active':'')+'" data-tab="bloquear">🚫 Bloquear días</button>'
-    +'<button class="tab'+(app.tab==='clientas'?' active':'')+'" data-tab="clientas">💅 Fichas clientas</button>'
-    +'<button class="tab'+(app.tab==='horarios'?' active':'')+'" data-tab="horarios">🕐 Horarios</button>'
-    +'<button class="tab'+(app.tab==='stats'?' active':'')+'" data-tab="stats">📊 Estadísticas</button>'
+    +'<button class="tab'+(app.tab==='agenda'?' active':'')+'">📅 Agenda semanal</button>'
+    +'<button class="tab'+(app.tab==='lista'?' active':'')+'">📋 Todas las citas</button>'
+    +'<button class="tab'+(app.tab==='bloquear'?' active':'')+'">🚫 Bloquear días</button>'
+    +'<button class="tab'+(app.tab==='clientas'?' active':'')+'">💅 Fichas clientas</button>'
+    +'<button class="tab'+(app.tab==='horarios'?' active':'')+'">🕐 Horarios</button>'
+    +'<button class="tab'+(app.tab==='stats'?' active':'')+'">📊 Estadísticas</button>'
     +'</div>'
     +inner
     +'</div>'
@@ -861,10 +862,11 @@ function bindEvents() {
   if (lo) lo.addEventListener('click', function(){ app.loggedIn=false; render(); });
 
   // Stat cards clickable
-  // Use event delegation on root for reliability
-  var root = document.getElementById('root');
-  if (root) {
-    root.onclick = function(e) {
+  // Global event delegation
+  if (!window._adminDelegated) {
+    window._adminDelegated = true;
+    document.addEventListener('click', function(e) {
+      if (!app.loggedIn) return;
       var agendaAppt = e.target.closest('.agenda-appt[data-cid]');
       if (agendaAppt) {
         var id = agendaAppt.dataset.cid;
@@ -872,13 +874,13 @@ function bindEvents() {
         if (found) { app.modal = found; render(); }
         return;
       }
-      var statCard = e.target.closest('#statHoy, #statProximas, #statTotal');
-      if (statCard) { app.tab='lista'; render(); return; }
       var tabBtn = e.target.closest('.tab[data-tab]');
       if (tabBtn) { app.tab = tabBtn.dataset.tab; render(); return; }
+      var statCard = e.target.closest('#statHoy, #statProximas, #statTotal');
+      if (statCard) { app.tab='lista'; render(); return; }
       var logoutBtn = e.target.closest('#logoutBtn');
       if (logoutBtn) { app.loggedIn=false; render(); return; }
-    };
+    });
   }
 
   var sH = document.getElementById('statHoy');

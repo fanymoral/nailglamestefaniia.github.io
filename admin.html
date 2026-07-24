@@ -340,6 +340,8 @@ function renderClientas() {
       +'<div class="form-row"><label class="form-label">Producto que le va bien</label><input class="form-input" id="cfProducto" value="'+(ec.Producto||'')+'" placeholder="Ej: Base rubber rosa, top coat mate..."></div>'
       +'<div class="form-row"><label class="form-label">Alergias o sensibilidades</label><input class="form-input" id="cfAlergias" value="'+(ec.Alergias||'')+'" placeholder="Ej: Alérgica al metacrilato..."></div>'
       +'<div class="form-row"><label class="form-label">Notas personales</label><textarea class="form-input" id="cfNotas" placeholder="Cualquier cosa que debas recordar...">'+(ec.Notas||'')+'</textarea></div>'
+      +'<div class="form-row"><label class="form-label">Bono activo</label><select class="form-input" id="cfBono"><option value="">Sin bono</option><option value="Bono 3 Semipermanentes" '+(ec.Bono==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(ec.Bono==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(ec.Bono==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(ec.Bono==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (75€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(ec.Bono==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(ec.Bono==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>'
+      +'<div class="form-row"><label class="form-label">Sesiones restantes del bono</label><input class="form-input" id="cfBonoSesiones" type="number" min="0" max="3" value="'+(ec.BonoSesiones||3)+'" placeholder="3"></div>'
       +'<div style="display:flex;gap:0.8rem;margin-top:0.5rem">'
       +'<button class="btn-primary" id="saveClientaBtn" style="flex:1">Guardar ficha</button>'
       +'<button class="btn-secondary" id="cancelClientaBtn" style="width:auto;padding:0 1.2rem">Cancelar</button>'
@@ -362,6 +364,7 @@ function renderClientas() {
         +'<div class="clienta-tel">📱 '+(c['Teléfono']||'—')+'</div>'
         +(c.Producto?'<div class="clienta-field"><div class="clienta-field-label">Producto</div><div class="clienta-field-val">'+c.Producto+'</div></div>':'')
         +(c.Alergias?'<div class="clienta-field"><div class="clienta-field-label">Alergias</div><div class="clienta-field-val">'+c.Alergias+'</div></div>':'')
+        +(c.Bono?'<div class="clienta-field"><div class="clienta-field-label">🎟️ Bono activo</div><div class="clienta-field-val">'+c.Bono+' · '+( c.BonoSesiones||'?')+' sesión(es) restante(s)</div></div>':'')
         +(c.Notas?'<div class="clienta-field"><div class="clienta-field-label">Notas</div><div class="clienta-field-val">'+c.Notas+'</div></div>':'')
         +'<div class="clienta-historial"><div class="clienta-historial-title">Últimas citas</div>'+histHtml+'</div>'
         +'<div class="clienta-actions"><button class="btn-edit" data-editidx="'+idx+'">✏️ Editar</button>'
@@ -633,8 +636,9 @@ function renderAgenda() {
         var topPct = ((startM - h*60) / 60) * 100;
         var heightPx = Math.max(dur * 60/60, 26);
         var svcCls = getSvcClass(c.Servicio);
+        var hasBono = (c.Notas||'').indexOf('🎟️') >= 0;
         return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="top:'+topPct+'%;height:'+heightPx+'px">'
-          +'<div class="aa-time">'+c.Hora+'</div>'
+          +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
           +'<div class="aa-name">'+c.Nombre+'</div>'
           +'<div class="aa-service">'+c.Servicio+'</div>'
           +'</div>';
@@ -835,6 +839,7 @@ function renderModal() {
     +'<div class="modal-row"><span class="modal-label">Servicio</span><span>'+c.Servicio+'</span></div>'
     +'<div class="modal-row"><span class="modal-label">Precio</span><span>'+c.Precio+'</span></div>'
     +'<div class="modal-row"><span class="modal-label">Teléfono</span><span>'+tel+'</span></div>'
+    +((c.Notas&&c.Notas.indexOf('🎟️')>=0)?'<div class="modal-row"><span class="modal-label">🎟️ Bono</span><span style="color:var(--rose);font-weight:500;">Sesión de bono</span></div>':'')
     +(c.Notas?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+c.Notas+'</span></div>':'')
     +'<div class="modal-row"><span class="modal-label">Estado</span><span>'+(isCancelled?'❌ Cancelada':(isCompleted?'✅ Completada':'✓ Confirmada'))+'</span></div>'
     +'<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.2rem;">'
@@ -1174,7 +1179,9 @@ function bindEvents() {
       'Teléfono': document.getElementById('cfTel').value.trim(),
       Producto: document.getElementById('cfProducto').value.trim(),
       Alergias: document.getElementById('cfAlergias').value.trim(),
-      Notas: document.getElementById('cfNotas').value.trim()
+      Notas: document.getElementById('cfNotas').value.trim(),
+      Bono: document.getElementById('cfBono').value,
+      BonoSesiones: document.getElementById('cfBonoSesiones').value
     };
     saveCF.textContent = 'Guardando...'; saveCF.disabled = true;
     var isNew = app.clientaEditing.isNew;

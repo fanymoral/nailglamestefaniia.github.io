@@ -86,6 +86,17 @@
   .info-banner { background: linear-gradient(135deg, #FFF4F8, #FFE8F2); border: 1px solid var(--blush); border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.78rem; color: var(--dark-rose); margin-top: 1rem; line-height: 1.5; }
   .loading-overlay { position: fixed; inset: 0; background: rgba(250,246,241,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
   .broken-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:center; justify-content:center; z-index:998; padding:1rem; }
+  .bono-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:center; justify-content:center; z-index:997; padding:1rem; overflow-y:auto; }
+  .bono-modal { background:var(--white); border-radius:20px; padding:1.8rem; max-width:400px; width:100%; animation:fadeUp 0.3s ease both; }
+  .bono-modal-title { font-family:'Cormorant Garamond',serif; font-size:1.6rem; margin-bottom:0.3rem; text-align:center; }
+  .bono-modal-sub { font-size:0.8rem; color:var(--warm-gray); margin-bottom:1.2rem; text-align:center; line-height:1.5; }
+  .bono-option { border:1.5px solid var(--light-gray); border-radius:12px; padding:0.9rem 1rem; margin-bottom:0.6rem; cursor:pointer; transition:all 0.2s; }
+  .bono-option:hover { border-color:var(--rose); background:#FFF4F8; }
+  .bono-option.selected { border-color:var(--rose); background:#FFF4F8; }
+  .bono-name { font-weight:500; font-size:0.9rem; }
+  .bono-detail { font-size:0.75rem; color:var(--warm-gray); margin-top:0.2rem; }
+  .bono-price { font-size:0.9rem; color:var(--rose); font-weight:500; margin-top:0.3rem; }
+  .bono-saving { font-size:0.72rem; color:var(--green); font-weight:500; }
   .broken-modal { background:var(--white); border-radius:20px; padding:2rem; max-width:360px; width:100%; text-align:center; animation:fadeUp 0.3s ease both; }
   .broken-modal-title { font-family:'Cormorant Garamond',serif; font-size:1.5rem; margin-bottom:0.5rem; }
   .broken-modal-sub { font-size:0.8rem; color:var(--warm-gray); margin-bottom:1.5rem; line-height:1.5; }
@@ -278,6 +289,34 @@ function getSlots(dateStr, dur) {
   return slots;
 }
 
+var BONOS = [
+  {id:'bono-semi', name:'Bono 3 Semipermanentes', normal:'60€', precio:'50€', ahorro:'10€'},
+  {id:'bono-gel',  name:'Bono 3 Refuerzo con Gel', normal:'66€', precio:'55€', ahorro:'11€'},
+  {id:'bono-pies', name:'Bono 3 Pies', normal:'54€', precio:'48€', ahorro:'6€'},
+  {id:'bono-acri', name:'Bono 3 Acrigel', normal:'84€', precio:'75€', ahorro:'9€'},
+  {id:'bono-gel-pies', name:'Bono 3 Refuerzo Gel + Semi Pies', normal:'120€', precio:'105€', ahorro:'15€'},
+  {id:'bono-semi-pies', name:'Bono 3 Semi Manos + Semi Pies', normal:'114€', precio:'100€', ahorro:'14€'}
+];
+
+function renderBonoModal() {
+  var opts = BONOS.map(function(b){
+    var sel = state.bonoType === b.name ? ' selected' : '';
+    return '<div class="bono-option'+sel+'" data-bono="'+b.name+'">'
+      +'<div class="bono-name">'+b.name+'</div>'
+      +'<div class="bono-detail">3 sesiones · Normal: '+b.normal+'</div>'
+      +'<div class="bono-price">'+b.precio+' <span class="bono-saving">¡Ahorras '+b.ahorro+'!</span></div>'
+      +'</div>';
+  }).join('');
+  return '<div class="bono-modal-bg" id="bonoModalBg">'
+    +'<div class="bono-modal">'
+    +'<div class="bono-modal-title">🎟️ ¿Sabías que tengo bonos?</div>'
+    +'<div class="bono-modal-sub">Ahorra comprando un bono de 3 sesiones. Paga una vez y úsalo cuando quieras. Pago por Bizum, transferencia o efectivo.</div>'
+    +opts
+    +'<button class="btn-primary" id="bonoConfirmBtn" style="margin-top:1rem;">'+(state.bonoType?'Usar mi bono de '+state.bonoType:'Continuar sin bono')+'</button>'
+    +'<button class="btn-secondary" id="bonoSkipBtn" style="margin-top:0.5rem;">No me interesa por ahora</button>'
+    +'</div></div>';
+}
+
 function bnChange(delta) {
   var newVal = (state.brokenNails || 0) + delta;
   if (newVal < 0) newVal = 0;
@@ -382,7 +421,8 @@ function renderStep2() {
       slotsHtml='<div class="card-title" style="margin-top:1.5rem;font-size:1.1rem">Elige la hora</div><div class="slots-grid">'+sBtns+'</div>';
     }
   }
-  return '<div class="card"><div class="card-title">Elige tu fecha<small>Días disponibles según tu horario</small></div>'
+  var bonoModalHtml = state.showBonoModal ? renderBonoModal() : '';
+  return bonoModalHtml+'<div class="card"><div class="card-title">Elige tu fecha<small>Días disponibles según tu horario</small></div>'
     +'<div class="calendar-header"><button class="nav-btn" id="prevM">‹</button><div class="month-title">'+mNames[state.month]+' '+state.year+'</div><button class="nav-btn" id="nextM">›</button></div>'
     +'<div class="calendar-grid">'+dNames.map(function(n){return '<div class="cal-day-name">'+n+'</div>';}).join('')+cells+'</div>'
     +slotsHtml
@@ -394,6 +434,8 @@ function renderStep3() {
     +'<div class="form-row"><label class="form-label">Nombre y apellidos *</label><input class="form-input" id="iName" type="text" placeholder="Ej: Laura García" value="'+state.name+'" maxlength="60"></div>'
     +'<div class="form-row"><label class="form-label">Teléfono (WhatsApp) *</label><input class="form-input" id="iPhone" type="tel" placeholder="Ej: 612 345 678" value="'+state.phone+'" maxlength="20"></div>'
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iFirstTime" '+(state.firstTime?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> ✨ Es mi primera vez contigo</label></div>'
+    +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iHasBono" '+(state.hasBono?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> 🎟️ Tengo un bono</label></div>'
+    +(state.hasBono?'<div class="form-row"><label class="form-label">¿Qué tipo de bono?</label><select class="form-input" id="iBonoType"><option value="">Selecciona...</option><option value="Bono 3 Semipermanentes" '+(state.bonoType==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(state.bonoType==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(state.bonoType==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(state.bonoType==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (75€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(state.bonoType==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(state.bonoType==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>':'')
     +'<div class="form-row"><label class="form-label">¿Algo que deba saber? (opcional)</label><textarea class="form-input" id="iNotes" placeholder="Alergias, preferencias de color...">'+state.notes+'</textarea></div>'
     +'<div class="info-banner"><strong>📋 Política de cancelación:</strong> Si necesitas cancelar o cambiar tu cita, avísame con al menos <strong>24 horas de antelación</strong> por WhatsApp. Las inasistencias repetidas sin aviso pueden afectar a futuras reservas. ¡Gracias por tu comprensión! 💕</div>'
     +'<div class="info-banner" style="margin-top:0.6rem"><strong>⏰ Puntualidad:</strong> Si llegas con más de 15 minutos de retraso, puede que tengamos que reprogramar tu cita para no afectar a otras clientas.</div>'
@@ -414,6 +456,7 @@ function renderStep4() {
   var totalPriceDisplay = Math.round(totalPrice)+'€';
   var rows=[['Servicios',svcNames],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',state.name],['Teléfono',state.phone]];
   if (bnExtra) rows.push(['Uñas rotas', bnExtra]);
+  if (state.hasBono) rows.push(['Bono','🎟️ '+state.bonoType]);
   if (state.firstTime) rows.push(['Primera vez','✨ Sí']);
   if (state.notes) rows.push(['Notas',state.notes]);
   return '<div class="card"><div class="card-title">Confirmar cita<small>Revisa los detalles antes de reservar</small></div>'
@@ -496,7 +539,13 @@ function bind() {
 
   var b1=document.getElementById('btn1');
   if (b1) b1.addEventListener('click',function(){
-    loadData(function(){ state.step=2; render(); });
+    loadData(function(){
+      if (!state.bonoShown) {
+        state.showBonoModal = true;
+        state.bonoShown = true;
+      }
+      state.step=2; render();
+    });
   });
   var pm=document.getElementById('prevM');
   if (pm) pm.addEventListener('click',function(){ if(state.month===0){state.month=11;state.year--;}else state.month--; render(); });
@@ -519,6 +568,24 @@ function bind() {
   if (b2) b2.addEventListener('click',function(){ state.step=3; render(); });
   var bk2=document.getElementById('back2');
   if (bk2) bk2.addEventListener('click',function(){ state.step=1; render(); });
+
+  // Bono modal
+  document.querySelectorAll('.bono-option[data-bono]').forEach(function(el){
+    el.addEventListener('click', function(){
+      state.bonoType = state.bonoType === el.dataset.bono ? '' : el.dataset.bono;
+      state.hasBono = !!state.bonoType;
+      render();
+    });
+  });
+  var bonoConfirm = document.getElementById('bonoConfirmBtn');
+  if (bonoConfirm) bonoConfirm.addEventListener('click', function(){
+    state.showBonoModal = false; render();
+  });
+  var bonoSkip = document.getElementById('bonoSkipBtn');
+  if (bonoSkip) bonoSkip.addEventListener('click', function(){
+    state.hasBono = false; state.bonoType = '';
+    state.showBonoModal = false; render();
+  });
   var b3=document.getElementById('btn3');
   if (b3) b3.addEventListener('click',function(){
     var n=document.getElementById('iName').value.trim();
@@ -526,6 +593,9 @@ function bind() {
     if (!n||!p){ alert('Por favor, rellena tu nombre y teléfono.'); return; }
     state.name=n; state.phone=p; state.notes=document.getElementById('iNotes').value.trim();
     state.firstTime=document.getElementById('iFirstTime').checked;
+    state.hasBono=document.getElementById('iHasBono').checked;
+    state.bonoType=state.hasBono?(document.getElementById('iBonoType')?document.getElementById('iBonoType').value:''):'';
+    if (state.hasBono && !state.bonoType){ alert('Por favor selecciona el tipo de bono.'); return; }
 
     // Check for existing active appointment with same phone, in the future
     var today = new Date(); today.setHours(0,0,0,0);
@@ -569,19 +639,40 @@ function bind() {
         'Duración': totalDur+' min',
         Nombre: state.name,
         'Teléfono': state.phone,
-        Notas: (state.firstTime ? '✨ Primera vez. ' : '') + (state.brokenNails>0 ? '🔨 '+state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
+        Notas: (state.hasBono ? '🎟️ '+state.bonoType+'. ' : '') + (state.firstTime ? '✨ Primera vez. ' : '') + (state.brokenNails>0 ? '🔨 '+state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
         'Reservada el': new Date().toLocaleString('es-ES'),
         Estado: 'confirmada'
       }})
     })
-    .then(function(){ showLoading(false); state.step=5; render(); })
+    .then(function(){
+      // If bono, discount one session from client profile
+      if (state.hasBono && state.bonoType) {
+        var tel = state.phone.replace(/\D/g,'');
+        // Find client in SheetDB by phone and update sessions
+        fetch(SHEETDB_URL+'/Teléfono/'+encodeURIComponent(state.phone)+'?sheet=Clientas')
+          .then(function(r){ return r.json(); })
+          .then(function(clientas){
+            if (clientas && clientas.length > 0) {
+              var c = clientas[0];
+              var sesiones = parseInt(c.BonoSesiones||3) - 1;
+              var bonoActivo = sesiones > 0 ? c.Bono : '';
+              fetch(SHEETDB_URL+'/Teléfono/'+encodeURIComponent(state.phone)+'?sheet=Clientas', {
+                method:'PATCH',
+                headers:{'Content-Type':'application/json','Accept':'application/json'},
+                body: JSON.stringify({data:{BonoSesiones: sesiones, Bono: bonoActivo}})
+              });
+            }
+          }).catch(function(){});
+      }
+      showLoading(false); state.step=5; render();
+    })
     .catch(function(){ showLoading(false); state.step=5; render(); });
   });
   var bk4=document.getElementById('back4');
   if (bk4) bk4.addEventListener('click',function(){ state.step=3; render(); });
   var bn=document.getElementById('btnNew');
   if (bn) bn.addEventListener('click',function(){
-    state.step=1; state.services=[]; state.date=null; state.time=null; state.name=''; state.phone=''; state.notes=''; state.firstTime=false; state.brokenNails=0; state.showBrokenModal=false;
+    state.step=1; state.services=[]; state.date=null; state.time=null; state.name=''; state.phone=''; state.notes=''; state.firstTime=false; state.brokenNails=0; state.showBrokenModal=false; state.hasBono=false; state.bonoType='';
     render();
   });
 }

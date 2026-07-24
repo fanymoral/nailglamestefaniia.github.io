@@ -559,10 +559,41 @@ function bind() {
   });
   var wlBtn = document.getElementById('waitlistBtn');
   if (wlBtn) wlBtn.addEventListener('click', function(){
-    var d = new Date(state.date+'T12:00:00');
-    var svcNames = state.services.map(function(s){return s.name;}).join(' + ') || '(sin especificar)';
-    var msg = encodeURIComponent('¡Hola! 💅 El día '+formatDate(d)+' está completo, pero me gustaría apuntarme a la lista de espera para ese día. Servicios que me interesan: '+svcNames+'. ¡Avísame si se libera un hueco! Gracias ✨');
-    window.open('https://wa.me/'+WHATSAPP+'?text='+msg, '_blank');
+    state.showWaitlist = true; render();
+  });
+  var wlCancelBtn = document.getElementById('wlCancelBtn');
+  if (wlCancelBtn) wlCancelBtn.addEventListener('click', function(){
+    state.showWaitlist = false; render();
+  });
+  var wlSubmitBtn = document.getElementById('wlSubmitBtn');
+  if (wlSubmitBtn) wlSubmitBtn.addEventListener('click', function(){
+    var n = document.getElementById('wlName').value.trim();
+    var p = document.getElementById('wlPhone').value.trim();
+    if (!n||!p){ alert('Por favor rellena tu nombre y teléfono.'); return; }
+    state.waitlistName = n; state.waitlistPhone = p;
+    var svcNames = state.services.map(function(s){return s.name;}).join(' + ') || 'Sin especificar';
+    wlSubmitBtn.textContent = 'Guardando...'; wlSubmitBtn.disabled = true;
+    fetch(SHEETDB_URL+'?sheet=ListaEspera', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({data:{
+        Nombre: n,
+        'Teléfono': p,
+        Fecha: state.date,
+        Servicio: svcNames,
+        'Añadida el': new Date().toLocaleString('es-ES')
+      }})
+    }).then(function(){
+      state.showWaitlist = false;
+      state.waitlistName = ''; state.waitlistPhone = '';
+      // Show success message
+      alert('✅ ¡Apuntada! Te avisaremos por WhatsApp si se libera un hueco el '+state.date+' 😊');
+      render();
+    }).catch(function(){
+      wlSubmitBtn.textContent = '✓ Apuntarme a lista de espera';
+      wlSubmitBtn.disabled = false;
+      alert('Error al guardar. Inténtalo de nuevo.');
+    });
   });
   var b2=document.getElementById('btn2');
   if (b2) b2.addEventListener('click',function(){ state.step=3; render(); });

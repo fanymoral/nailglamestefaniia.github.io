@@ -860,7 +860,7 @@ function renderBloquear() {
 function renderModal() {
   var c = app.modal;
   var tel = (c['Teléfono']||c.Telefono||'').replace(/[^0-9]/g,'');
-  var waReminder = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te recuerdo tu cita en Nail Glam Estefania el '+c.Fecha+' a las '+c.Hora+' para '+c.Servicio+'. ¡Te espero! ✨');
+  var waReminder = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te escribo para recordarte tu cita el '+fmtDate(c.Fecha)+' a las '+c.Hora+' para '+c.Servicio+'. Por favor, confirma tu asistencia. ¡Hasta pronto! ✨');
   var waReview = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Espero que te haya encantado tu '+c.Servicio+'. Si tienes un momentito, me harías muchísima ilusión que dejaras una reseña en Google o que subieras una foto a Instagram etiquetándome @nailglam.estefania ✨ ¡Muchas gracias! 💕');
   var isCancelled = c.Estado==='cancelada';
   var isCompleted = c.Estado==='completada';

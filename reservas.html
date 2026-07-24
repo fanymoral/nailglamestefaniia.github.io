@@ -86,8 +86,8 @@
   .info-banner { background: linear-gradient(135deg, #FFF4F8, #FFE8F2); border: 1px solid var(--blush); border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.78rem; color: var(--dark-rose); margin-top: 1rem; line-height: 1.5; }
   .loading-overlay { position: fixed; inset: 0; background: rgba(250,246,241,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
   .broken-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:center; justify-content:center; z-index:998; padding:1rem; }
-  .bono-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:center; justify-content:center; z-index:997; padding:1rem; overflow-y:auto; }
-  .bono-modal { background:var(--white); border-radius:20px; padding:1.8rem; max-width:400px; width:100%; animation:fadeUp 0.3s ease both; }
+  .bono-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:flex-start; justify-content:center; z-index:997; padding:1rem; overflow-y:auto; }
+  .bono-modal { background:var(--white); border-radius:20px; padding:1.8rem; max-width:400px; width:100%; animation:fadeUp 0.3s ease both; margin:auto; }
   .bono-modal-title { font-family:'Cormorant Garamond',serif; font-size:1.6rem; margin-bottom:0.3rem; text-align:center; }
   .bono-modal-sub { font-size:0.8rem; color:var(--warm-gray); margin-bottom:1.2rem; text-align:center; line-height:1.5; }
   .bono-option { border:1.5px solid var(--light-gray); border-radius:12px; padding:0.9rem 1rem; margin-bottom:0.6rem; cursor:pointer; transition:all 0.2s; }
@@ -453,7 +453,19 @@ function renderStep4() {
   },0) + (state.brokenNails || 0);
   var bnExtra = state.brokenNails > 0 ? state.brokenNails+'€ extra ('+state.brokenNails+' uña(s) rota(s))' : '';
   if (state.brokenNails > 4) totalDur += 15;
-  var totalPriceDisplay = Math.round(totalPrice)+'€';
+  var totalPriceDisplay;
+  if (state.hasBono && state.bonoType) {
+    var bonoFound = BONOS.find(function(b){ return b.name === state.bonoType; });
+    if (bonoFound) {
+      var bonoPrecio = parseFloat(bonoFound.precio) + (state.brokenNails || 0);
+      var bonoNormal = parseFloat(bonoFound.normal) + (state.brokenNails || 0);
+      totalPriceDisplay = bonoPrecio+'€'+(state.brokenNails>0?' (+'+state.brokenNails+'€ uñas rotas)':'')+'<br><span style="font-size:0.9rem;color:var(--warm-gray);text-decoration:line-through;">'+bonoNormal+'€</span>';
+    } else {
+      totalPriceDisplay = Math.round(totalPrice)+'€';
+    }
+  } else {
+    totalPriceDisplay = Math.round(totalPrice)+'€';
+  }
   var rows=[['Servicios',svcNames],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',state.name],['Teléfono',state.phone]];
   if (bnExtra) rows.push(['Uñas rotas', bnExtra]);
   if (state.hasBono) rows.push(['Bono','🎟️ '+state.bonoType]);
@@ -471,7 +483,7 @@ function renderStep4() {
 function renderSuccess() {
   var d=new Date(state.date+'T12:00:00');
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
-  var msg=encodeURIComponent('¡Hola! Acabo de reservar una cita 💅\n\n📋 Servicio: '+svcNames+'\n📅 Fecha: '+formatDate(d)+'\n⏰ Hora: '+state.time+'\n👤 Nombre: '+state.name+'\n📱 Tel: '+state.phone+(state.notes?'\n📝 Notas: '+state.notes:'')+'\n\n¡Nos vemos pronto! ✨');
+  var msg=encodeURIComponent('¡Hola! Acabo de reservar una cita 💅\n\n📋 Servicio: '+svcNames+'\n📅 Fecha: '+formatDate(d)+'\n⏰ Hora: '+state.time+'\n👤 Nombre: '+state.name+'\n📱 Tel: '+state.phone+(state.firstTime?'\n✨ ¡Es mi primera vez contigo!':'')+(state.hasBono?'\n🎟️ Tengo un '+state.bonoType:'')+(state.notes?'\n📝 Notas: '+state.notes:'')+'\n\n¡Nos vemos pronto! ✨');
   var welcomeMsg = state.firstTime ? '<p style="font-size:0.85rem;color:var(--rose);margin-bottom:0.8rem;">✨ ¡Qué ilusión tenerte por primera vez! Te vamos a cuidar muy bien 💕</p>' : '';
   return '<div class="card success-screen"><div class="success-icon">✓</div><div class="success-title">¡Reserva confirmada!</div>'
     +welcomeMsg

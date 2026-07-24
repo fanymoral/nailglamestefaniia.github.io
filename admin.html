@@ -456,21 +456,24 @@ function renderEspera() {
 function renderStats() {
   var citasActivas = app.citas.filter(function(c){ return c.Estado !== 'cancelada'; });
 
-  // Get available months from data
-  var monthsSet = {};
-  citasActivas.forEach(function(c){
-    if (c.Fecha) monthsSet[c.Fecha.substring(0,7)] = true;
-  });
-  var months = Object.keys(monthsSet).sort().reverse();
+  var mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var currentMonth = new Date().getFullYear()+'-'+pad(new Date().getMonth()+1);
-  if (months.indexOf(currentMonth)<0) months.unshift(currentMonth);
   var selMonth = app.statsMonth || currentMonth;
+
+  // Generate all months from Jan 2026 to Dec 2027
+  var months = [];
+  for (var y=2026; y<=2027; y++) {
+    for (var m=1; m<=12; m++) {
+      months.push(y+'-'+pad(m));
+    }
+  }
+  months.reverse(); // most recent first
 
   var monthOptions = months.map(function(m){
     var parts = m.split('-');
-    var mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     var label = mNames[parseInt(parts[1])-1]+' '+parts[0];
-    return '<option value="'+m+'"'+(m===selMonth?' selected':'')+'>'+label+'</option>';
+    var hasCitas = citasActivas.some(function(c){ return (c.Fecha||'').substring(0,7)===m; });
+    return '<option value="'+m+'"'+(m===selMonth?' selected':'')+'>'+label+(hasCitas?' ✓':'')+'</option>';
   }).join('');
 
   var citasMes = citasActivas.filter(function(c){ return (c.Fecha||'').substring(0,7) === selMonth; });
@@ -576,12 +579,13 @@ function renderAdmin() {
     +'<div class="container">'
     +statsHtml
     +'<div class="tabs">'
-    +'<button class="tab'+(app.tab==='agenda'?' active':'')+'">📅 Agenda semanal</button>'
-    +'<button class="tab'+(app.tab==='lista'?' active':'')+'">📋 Todas las citas</button>'
-    +'<button class="tab'+(app.tab==='bloquear'?' active':'')+'">🚫 Bloquear días</button>'
-    +'<button class="tab'+(app.tab==='clientas'?' active':'')+'">💅 Fichas clientas</button>'
-    +'<button class="tab'+(app.tab==='horarios'?' active':'')+'">🕐 Horarios</button>'
-    +'<button class="tab'+(app.tab==='stats'?' active':'')+'">📊 Estadísticas</button>'
+    +'<button class="tab'+(app.tab==='agenda'?' active':'')+'" data-tab="agenda">📅 Agenda semanal</button>'
+    +'<button class="tab'+(app.tab==='lista'?' active':'')+'" data-tab="lista">📋 Todas las citas</button>'
+    +'<button class="tab'+(app.tab==='bloquear'?' active':'')+'" data-tab="bloquear">🚫 Bloquear días</button>'
+    +'<button class="tab'+(app.tab==='clientas'?' active':'')+'" data-tab="clientas">💅 Fichas clientas</button>'
+    +'<button class="tab'+(app.tab==='horarios'?' active':'')+'" data-tab="horarios">🕐 Horarios</button>'
+    +'<button class="tab'+(app.tab==='stats'?' active':'')+'" data-tab="stats">📊 Estadísticas</button>'
+    +'<button class="tab'+(app.tab==='espera'?' active':'')+'" data-tab="espera">⏳ Lista de espera</button>'
     +'</div>'
     +inner
     +'</div>'

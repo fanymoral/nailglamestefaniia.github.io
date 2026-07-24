@@ -546,9 +546,7 @@ function renderAdmin() {
     inner = '<div class="loading"><div class="spinner"></div>Cargando citas...</div>';
   } else if (app.tab==='agenda') {
     inner = renderAgenda();
-  } else if (app.tab==='lista') {
-    inner = renderLista();
-  } else if (app.tab==='clientas') {
+    } else if (app.tab==='clientas') {
     inner = renderClientas();
   } else if (app.tab==='horarios') {
     inner = renderHorarios();
@@ -580,7 +578,6 @@ function renderAdmin() {
     +statsHtml
     +'<div class="tabs">'
     +'<button class="tab'+(app.tab==='agenda'?' active':'')+'" data-tab="agenda">📅 Agenda semanal</button>'
-    +'<button class="tab'+(app.tab==='lista'?' active':'')+'" data-tab="lista">📋 Todas las citas</button>'
     +'<button class="tab'+(app.tab==='bloquear'?' active':'')+'" data-tab="bloquear">🚫 Bloquear días</button>'
     +'<button class="tab'+(app.tab==='clientas'?' active':'')+'" data-tab="clientas">💅 Fichas clientas</button>'
     +'<button class="tab'+(app.tab==='horarios'?' active':'')+'" data-tab="horarios">🕐 Horarios</button>'
@@ -918,7 +915,7 @@ function bindEvents() {
       var tabBtn = e.target.closest('.tab[data-tab]');
       if (tabBtn) { app.tab = tabBtn.dataset.tab; render(); return; }
       var statCard = e.target.closest('#statHoy, #statProximas, #statTotal');
-      if (statCard) { app.tab='lista'; render(); return; }
+      if (statCard) { app.tab='agenda'; render(); return; }
       var logoutBtn = e.target.closest('#logoutBtn');
       if (logoutBtn) { app.loggedIn=false; render(); return; }
     });

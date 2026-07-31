@@ -263,6 +263,9 @@ var app = {
 
 function switchTab(t){ app.tab=t; render(); }
 function pad(n){ return String(n).padStart(2,'0'); }
+function waEncode(msg) {
+  return encodeURIComponent(msg).replace(/%20/g,'+');
+}
 function fmtDate(ds) {
   var d=new Date(ds+'T12:00:00');
   return DAY_NAMES[d.getDay()]+' '+d.getDate()+' '+MONTH_SHORT[d.getMonth()];
@@ -365,7 +368,7 @@ function renderClientas() {
         +'<div class="clienta-tel">📱 '+(c['Teléfono']||'—')+'</div>'
         +(c.Producto?'<div class="clienta-field"><div class="clienta-field-label">Producto</div><div class="clienta-field-val">'+c.Producto+'</div></div>':'')
         +(c.Alergias?'<div class="clienta-field"><div class="clienta-field-label">Alergias</div><div class="clienta-field-val">'+c.Alergias+'</div></div>':'')
-        +(c.Bono?'<div class="clienta-field"><div class="clienta-field-label">🎟️ Bono activo</div><div class="clienta-field-val">'+c.Bono+' · '+( c.BonoSesiones||'?')+' sesión(es) restante(s)</div></div>':'')
+        +(c.Bono?'<div class="clienta-field"><div class="clienta-field-label">🎟️ Bono activo</div><div class="clienta-field-val">'+c.Bono+' · '+(c.BonoSesiones||'?')+' sesión(es) restante(s)<br><span style="font-size:0.7rem;color:var(--warm-gray)">Validez: 4 meses desde la compra</span></div></div>':'')
         +(c.Notas?'<div class="clienta-field"><div class="clienta-field-label">Notas</div><div class="clienta-field-val">'+c.Notas+'</div></div>':'')
         +'<div class="clienta-historial"><div class="clienta-historial-title">Últimas citas</div>'+histHtml+'</div>'
         +'<div class="clienta-actions"><button class="btn-edit" data-editidx="'+idx+'">✏️ Editar</button>'
@@ -723,7 +726,7 @@ function renderLista() {
       return '<div style="font-size:0.82rem;color:var(--warm-gray);font-style:italic;margin-bottom:1rem">No hay citas para '+labelDia+'.</div>';
     }
     return citas.map(function(c){
-      var msg = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te recuerdo tu cita '+mensajeDia+' en Nail Glam Estefania a las '+c.Hora+' para '+c.Servicio+'. ¡Te espero! Si necesitas cancelar avísame con antelación. ✨');
+      var msg = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te recuerdo tu cita '+mensajeDia+' a las '+c.Hora+' para '+c.Servicio+'. ¡Te espero! Si necesitas cancelar avísame con antelación. ✨');
       var tel = (c['Teléfono']||c.Telefono||'').replace(/\D/g,'');
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--light-gray);">'
         +'<div><div style="font-weight:500;font-size:0.88rem">'+c.Nombre+'</div>'
@@ -761,7 +764,7 @@ function renderLista() {
   var items = sorted.map(function(c){
     var d = new Date(c.Fecha+'T12:00:00');
     var cancelled = c.Estado==='cancelada';
-    var waMsg = encodeURIComponent('Hola '+c.Nombre+', te escribo desde Nail Glam Estefania para recordarte tu cita el '+fmtDate(c.Fecha)+' a las '+c.Hora+'. ¡Te esperamos! 💅');
+    var waMsg = encodeURIComponent('Hola '+c.Nombre+', te escribo desde Nail Glam Estefania para recordarte tu cita el '+fmtDate(c.Fecha)+' a las '+c.Hora+'. ¡Te espero! 💅');
     return '<div class="cita-card" style="'+(cancelled?'opacity:0.5':'')+'">'
       +'<div class="cita-fecha"><div class="cf-day">'+d.getDate()+'</div><div class="cf-mon">'+MONTH_SHORT[d.getMonth()]+'</div></div>'
       +'<div class="cita-info">'
@@ -862,7 +865,7 @@ function renderModal() {
   var c = app.modal;
   var tel = (c['Teléfono']||c.Telefono||'').replace(/[^0-9]/g,'');
   var waReminder = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Te escribo para recordarte tu cita el '+fmtDate(c.Fecha)+' a las '+c.Hora+' para '+c.Servicio+'. Por favor, confirma tu asistencia. ¡Hasta pronto! ✨');
-  var waReview = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Espero que te haya encantado tu '+c.Servicio+'. Si tienes un momentito, me harías muchísima ilusión que dejaras una reseña en Google o que subieras una foto a Instagram etiquetándome @nailglam.estefania ✨ ¡Muchas gracias! 💕');
+  var waReview = encodeURIComponent('¡Hola '+c.Nombre+'! 💅 Espero que te haya encantado tu '+c.Servicio+'. Si tienes un momentito, me haría muchísima ilusión que subieras una foto a Instagram etiquetándome @nailglam.estefania ✨ ¡Muchas gracias! 💕');
   var isCancelled = c.Estado==='cancelada';
   var isCompleted = c.Estado==='completada';
   return '<div class="modal-bg" id="modalBg">'

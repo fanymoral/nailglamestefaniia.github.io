@@ -294,10 +294,14 @@ function loadData(cb) {
   var citasP = fetchWithTimeout(SHEETDB_URL+'?sheet=Citas').then(function(r){return r.json();}).catch(function(){return [];});
   var bloquP = fetchWithTimeout(SHEETDB_URL+'?sheet=Bloqueados').then(function(r){return r.json();}).catch(function(){return [];});
   var clientP = fetchWithTimeout(SHEETDB_URL+'?sheet=Clientas').then(function(r){return r.json();}).catch(function(){return [];});
-  Promise.all([citasP, bloquP, clientP]).then(function(results){
+  var esperaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEspera').then(function(r){return r.json();}).catch(function(){return [];});
+  var aperturaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEsperaApertura').then(function(r){return r.json();}).catch(function(){return [];});
+  Promise.all([citasP, bloquP, clientP, esperaP, aperturaP]).then(function(results){
     app.citas = results[0] || [];
     app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);
     app.clientas = results[2] || [];
+    app.listaEspera = results[3] || [];
+    app.listaApertura = results[4] || [];
     app.loading=false; render(); if(cb)cb();
   }).catch(function(){ app.loading=false; render(); });
 }

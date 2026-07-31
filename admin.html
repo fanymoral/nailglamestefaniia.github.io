@@ -258,14 +258,12 @@ var app = {
   schedule: null,
   statsMonth: null,
   citaFilter: '',
-  listaEspera: []
+  listaEspera: [],
+  listaApertura: []
 };
 
 function switchTab(t){ app.tab=t; render(); }
 function pad(n){ return String(n).padStart(2,'0'); }
-function waEncode(msg) {
-  return encodeURIComponent(msg).replace(/%20/g,'+');
-}
 function fmtDate(ds) {
   var d=new Date(ds+'T12:00:00');
   return DAY_NAMES[d.getDay()]+' '+d.getDate()+' '+MONTH_SHORT[d.getMonth()];
@@ -428,6 +426,32 @@ function renderHorarios() {
 
 
 
+
+function renderApertura() {
+  var lista = app.listaApertura.slice();
+  if (!lista.length) {
+    return '<div class="block-section"><div class="block-title">Lista apertura octubre 🌸</div><div class="no-citas">Nadie se ha apuntado todavía. Comparte el enlace: <strong>fanymoral.github.io/nailglamestefaniia.github.io/espera.html</strong></div></div>';
+  }
+  var items = lista.map(function(e, idx){
+    var tel = (e['Teléfono']||'').replace(/[^0-9]/g,'');
+    var msg = encodeURIComponent('Hola '+e.Nombre+'! Soy Estefania de Nail Glam. Ya estoy de vuelta y me encantaria tenerte como clienta. Cuando te vendria bien venir? Te espero!');
+    return '<div class="cita-card">'
+      +'<div class="cita-info">'
+      +'<div class="cita-nombre">'+e.Nombre+'</div>'
+      +'<div class="cita-tel">📱 '+e['Teléfono']+'</div>'
+      +'<div class="cita-tel" style="font-size:0.7rem;color:#CCC">Se apuntó: '+(e.Fecha||'')+'</div>'
+      +'</div>'
+      +'<div class="cita-actions">'
+      +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa">💬 Avisar</a>'
+      +'<button class="btn-cancel" data-aperturaidx="'+idx+'">Quitar</button>'
+      +'</div></div>';
+  }).join('');
+  return '<div class="block-section">'
+    +'<div class="block-title">Lista apertura octubre 🌸<br><small style="font-family:DM Sans,sans-serif;font-size:0.78rem;color:var(--warm-gray);font-weight:300">'+lista.length+' persona(s) esperando. Enlace: <strong>fanymoral.github.io/nailglamestefaniia.github.io/espera.html</strong></small></div>'
+    +'<div class="citas-list" style="margin-top:1rem;">'+items+'</div>'
+    +'</div>';
+}
+
 function renderEspera() {
   var lista = app.listaEspera.slice().sort(function(a,b){ return a.Fecha>b.Fecha?1:-1; });
   if (!lista.length) {
@@ -557,6 +581,8 @@ function renderAdmin() {
     inner = renderStats();
   } else if (app.tab==='espera') {
     inner = renderEspera();
+  } else if (app.tab==='apertura') {
+    inner = renderApertura();
   } else {
     inner = renderBloquear();
   }
@@ -586,6 +612,7 @@ function renderAdmin() {
     +'<button class="tab'+(app.tab==='horarios'?' active':'')+'" data-tab="horarios">🕐 Horarios</button>'
     +'<button class="tab'+(app.tab==='stats'?' active':'')+'" data-tab="stats">📊 Estadísticas</button>'
     +'<button class="tab'+(app.tab==='espera'?' active':'')+'" data-tab="espera">⏳ Lista de espera</button>'
+    +'<button class="tab'+(app.tab==='apertura'?' active':'')+'" data-tab="apertura">🌸 Lista apertura</button>'
     +'</div>'
     +inner
     +'</div>'

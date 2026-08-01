@@ -71,7 +71,8 @@ document.getElementById('btnEnviar').addEventListener('click', function(){
     body: JSON.stringify({data: {
       Nombre: nombre,
       'Teléfono': telefono,
-      Fecha: new Date().toLocaleString('es-ES')
+      Fecha: new Date().toLocaleDateString('es-ES'),
+      Hora: new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'})
     }})
   }).then(function(){
     document.getElementById('app').innerHTML =

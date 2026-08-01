@@ -443,7 +443,7 @@ function renderApertura() {
       +'<div class="cita-info">'
       +'<div class="cita-nombre">'+e.Nombre+'</div>'
       +'<div class="cita-tel">📱 '+e['Teléfono']+'</div>'
-      +'<div class="cita-tel" style="font-size:0.7rem;color:#CCC">Se apuntó: '+(e.Fecha||'')+'</div>'
+      +'<div class="cita-tel" style="font-size:0.7rem;color:#CCC">Se apuntó: '+(e.Fecha||'')+' a las '+(e.Hora||'')+'</div>'
       +'</div>'
       +'<div class="cita-actions">'
       +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa">💬 Avisar</a>'

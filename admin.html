@@ -729,10 +729,22 @@ function renderAgenda() {
     return '<div class="legend-item-svc"><div class="legend-dot-svc '+l.cls+'"></div>'+l.label+'</div>';
   }).join('')+'</div>';
 
+  // Weekly income calculation
+  var weekDatesStr = days.map(function(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); });
+  var weekCitas = citasActivas.filter(function(c){ return weekDatesStr.indexOf(c.Fecha)>=0; });
+  var weekIncome = weekCitas.reduce(function(sum,c){
+    var p = (c.Precio||'').replace(/[^0-9.,+]/g,'').split('+').reduce(function(s,n){ return s+parseFloat(n.replace(',','.'))||0; },0);
+    return sum+p;
+  },0);
+
   return '<div class="week-nav">'
     +'<button class="nav-btn" id="prevWeek">&#8249;</button>'
     +'<div class="week-title">'+startStr+' &mdash; '+endStr+'</div>'
     +'<button class="nav-btn" id="nextWeek">&#8250;</button>'
+    +'</div>'
+    +'<div style="display:flex;gap:1rem;margin-bottom:0.8rem;flex-wrap:wrap;">'
+    +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">📋 <strong>'+weekCitas.length+'</strong> citas esta semana</div>'
+    +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">💰 <strong>'+Math.round(weekIncome)+'€</strong> ingresos estimados</div>'
     +'</div>'
     +'<div class="agenda-wrap"><div class="agenda-table">'
     +'<div class="agenda-header">'+headerCells+'</div>'

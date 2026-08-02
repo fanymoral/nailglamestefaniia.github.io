@@ -516,7 +516,10 @@ function renderSuccess() {
     +'<p style="font-size:0.8rem;color:var(--warm-gray);margin-bottom:0.6rem;">📷 ¡Comparte tu look en Instagram y etiquétanos!</p>'
     +'<a href="https://instagram.com/nailglam.estefania" target="_blank" class="ig-link">Síguenos @nailglam.estefania</a>'
     +'</div>'
-    +'<button class="btn-secondary" id="btnNew" style="margin-top:1rem">Hacer otra reserva</button></div>';
+    +'<div style="margin-top:0.8rem;">'
+    +'<a href="data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART:'+state.date.replace(/-/g,'')+'T'+state.time.replace(':','')+'00%0ASUMMARY:Nail+Glam+Estefania+-+'+encodeURIComponent(svcNames)+'%0AEND:VEVENT%0AEND:VCALENDAR" download="cita-nail-glam.ics" style="display:block;text-align:center;padding:0.7rem;background:var(--light-gray);border-radius:10px;text-decoration:none;color:var(--espresso);font-size:0.82rem;">📅 Guardar en mi calendario</a>'
+    +'</div>'
+    +'<button class="btn-secondary" id="btnNew" style="margin-top:0.8rem">Hacer otra reserva</button></div>';
 }
 
 function bind() {

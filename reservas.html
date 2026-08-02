@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nail Glam Estefania — Reservar Cita</title>
+<title>Nail Glam Estefania — Reservar cita</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💅</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -158,7 +159,7 @@ var CONFIG = {
     {id:"gel",      name:"Refuerzo con Gel",          desc:"Fortalecimiento con gel para uñas naturales",duration:60,  price:"22€"},
     {id:"acrigel",  name:"Acrigel",                   desc:"Uñas esculpidas con acrigel",               duration:90,  price:"28€"},
     {id:"relleno-acri", name:"Relleno de Acrigel",     desc:"Mantenimiento y relleno de tu acrigel para mantenerlo perfecto",duration:90, price:"25€"},
-    {id:"pies",     name:"Pies",                      desc:"Tratamiento y esmaltado de pies",           duration:30,  price:"18€"},
+    {id:"pies",     name:"Pies",                      desc:"Tratamiento y esmaltado semipermanente en pies",           duration:30,  price:"18€"},
     {id:"pedicura", name:"Pedicura Spa",               desc:"Tratamiento completo de pies: jelly spa, lima en seco, exfoliación e hidratación profunda. No incluye esmaltado. Un lujo para tus pies 💆‍♀️", duration:45, price:"30€"},
     {id:"deco-basic", name:"Decoración básica",      desc:"Efecto cromado, línea, puntos, degradados, efecto glitter o 3D en una uña",                                                                         duration:0,  price:"2€"},
     {id:"deco-mid",   name:"Decoración media",       desc:"Efecto mármol, flores, líneas geométricas en todas las uñas",                                                                                          duration:0,  price:"3€"},
@@ -310,7 +311,7 @@ function renderBonoModal() {
   return '<div class="bono-modal-bg" id="bonoModalBg">'
     +'<div class="bono-modal">'
     +'<div class="bono-modal-title">🎟️ ¿Sabías que tengo bonos?</div>'
-    +'<div class="bono-modal-sub">Ahorra comprando un bono de 3 sesiones. Paga una vez y úsalo cuando quieras. Pago por Bizum, transferencia o efectivo.</div>'
+    +'<div class="bono-modal-sub">Ahorra comprando un bono de 3 sesiones. Paga una vez y úsalo cuando quieras.<br><strong>Validez: 4 meses desde la fecha de compra.</strong><br>Pago por Bizum, transferencia o efectivo.<br><span style="font-size:0.72rem;color:#CCC;">El bono es personal e intransferible. No reembolsable una vez activado.</span></div>'
     +opts
     +'<button class="btn-primary" id="bonoConfirmBtn" style="margin-top:1rem;">'+(state.bonoType?'Usar mi bono de '+state.bonoType:'Continuar sin bono')+'</button>'
     +'<button class="btn-secondary" id="bonoSkipBtn" style="margin-top:0.5rem;">No me interesa por ahora</button>'
@@ -344,9 +345,29 @@ function render() {
 }
 
 function renderStep1() {
-  var btns=CONFIG.services.map(function(s){
-    var sel=state.services.some(function(x){return x.id===s.id;})?' selected':'';
-    return '<button class="service-btn'+sel+'" data-sid="'+s.id+'"><div class="service-name">'+s.name+'</div><div class="service-detail">'+s.desc+(s.duration>0?' · '+s.duration+' min':'')+'</div><div class="service-price">'+s.price+'</div></button>';
+  var groups = [
+    { label: '💅 Manos', ids: ['semi','gel','acrigel','relleno-acri'] },
+    { label: '🦶 Pies', ids: ['pies','pedicura'] },
+    { label: '✨ Extras', ids: ['deco-basic','deco-mid','deco-full','ret-semi','ret-acri'] }
+  ];
+
+  var btns = groups.map(function(g){
+    var groupBtns = CONFIG.services.filter(function(s){ return g.ids.indexOf(s.id)>=0; }).map(function(s){
+      var sel=state.services.some(function(x){return x.id===s.id;})?' selected':'';
+      return '<button class="service-btn'+sel+'" data-sid="'+s.id+'"><div class="service-name">'+s.name+'</div><div class="service-detail">'+s.desc+(s.duration>0?' · '+s.duration+' min':'')+'</div><div class="service-price">'+s.price+'</div></button>';
+    }).join('');
+    var colors = {'💅 Manos':'#F2C4D8','🦶 Pies':'#F7D4B8','✨ Extras':'#D8C8F0'};
+    var color = colors[g.label] || 'var(--light-gray)';
+    return '<div style="margin-bottom:1.5rem;">'
+      +'<div style="text-align:center;margin-bottom:0.8rem;display:flex;align-items:center;gap:0.8rem;">'
+      +'<div style="flex:1;height:2px;background:var(--blush);border-radius:2px;"></div>'
+      +'<div style="background:'+color+';border-radius:10px;padding:0.6rem 1.2rem;display:inline-block;">'
+      +'<span style="font-size:1rem;font-weight:500;color:var(--espresso);letter-spacing:0.1em;text-transform:uppercase;">'+g.label+'</span>'
+      +'</div>'
+      +'<div style="flex:1;height:2px;background:var(--blush);border-radius:2px;"></div>'
+      +'</div>'
+      +'<div class="services-grid">'+groupBtns+'</div>'
+      +'</div>';
   }).join('');
 
   var hasSemi = state.services.some(function(s){ return s.id==='semi'; });
@@ -440,6 +461,7 @@ function renderStep3() {
     +'<div class="info-banner"><strong>📋 Política de cancelación:</strong> Si necesitas cancelar o cambiar tu cita, avísame con al menos <strong>24 horas de antelación</strong> por WhatsApp. Las inasistencias repetidas sin aviso pueden afectar a futuras reservas. ¡Gracias por tu comprensión! 💕</div>'
     +'<div class="info-banner" style="margin-top:0.6rem"><strong>⏰ Puntualidad:</strong> Si llegas con más de 15 minutos de retraso, puede que tengamos que reprogramar tu cita para no afectar a otras clientas.</div>'
     +'<div class="info-banner" style="margin-top:0.6rem"><strong>📱 Confirmación:</strong> Al confirmar recibirás un resumen para enviarme por WhatsApp.</div>'
+    +'<div style="margin-top:0.8rem;font-size:0.72rem;color:var(--warm-gray);text-align:center;line-height:1.5;">🔒 Tus datos (nombre y teléfono) se usan únicamente para gestionar tu cita y no se comparten con terceros.</div>'
     +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn3">Revisar cita →</button><button class="btn-secondary" id="back3">← Volver</button></div></div>';
 }
 
@@ -484,10 +506,11 @@ function renderSuccess() {
   var d=new Date(state.date+'T12:00:00');
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
   var msg=encodeURIComponent('¡Hola! Acabo de reservar una cita 💅\n\n📋 Servicio: '+svcNames+'\n📅 Fecha: '+formatDate(d)+'\n⏰ Hora: '+state.time+'\n👤 Nombre: '+state.name+'\n📱 Tel: '+state.phone+(state.firstTime?'\n✨ ¡Es mi primera vez contigo!':'')+(state.hasBono?'\n🎟️ Tengo un '+state.bonoType:'')+(state.notes?'\n📝 Notas: '+state.notes:'')+'\n\n¡Nos vemos pronto! ✨');
-  var welcomeMsg = state.firstTime ? '<p style="font-size:0.85rem;color:var(--rose);margin-bottom:0.8rem;">✨ ¡Qué ilusión tenerte por primera vez! Te vamos a cuidar muy bien 💕</p>' : '';
+  var welcomeMsg = state.firstTime ? '<p style="font-size:0.85rem;color:var(--rose);margin-bottom:0.8rem;">✨ ¡Qué ilusión tenerte por primera vez! Te voy a cuidar muy bien 💕</p>' : '';
   return '<div class="card success-screen"><div class="success-icon">✓</div><div class="success-title">¡Reserva confirmada!</div>'
     +welcomeMsg
-    +'<p class="success-sub">Tu cita ha quedado reservada para el<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br><br>Te esperamos con mucha ilusión 💅</p>'
+    +'<p class="success-sub">Tu cita ha quedado reservada para el<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br><br>Te espero con mucha ilusión 💅</p>'
+    +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#856404;">⚠️ <strong>Importante:</strong> Pulsa el botón para enviarme tu reserva por WhatsApp. Sin este paso no podré confirmarla.</div>'
     +'<a href="https://wa.me/'+WHATSAPP+'?text='+msg+'" target="_blank" class="whatsapp-btn">💬 Confirmar por WhatsApp</a>'
     +'<div style="margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--light-gray);">'
     +'<p style="font-size:0.8rem;color:var(--warm-gray);margin-bottom:0.6rem;">📷 ¡Comparte tu look en Instagram y etiquétanos!</p>'

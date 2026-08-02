@@ -455,6 +455,7 @@ function renderStep3() {
     +'<div class="form-row"><label class="form-label">Nombre y apellidos *</label><input class="form-input" id="iName" type="text" placeholder="Ej: Laura García" value="'+state.name+'" maxlength="60"></div>'
     +'<div class="form-row"><label class="form-label">Teléfono (WhatsApp) *</label><input class="form-input" id="iPhone" type="tel" placeholder="Ej: 612 345 678" value="'+state.phone+'" maxlength="20"></div>'
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iFirstTime" '+(state.firstTime?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> ✨ Es mi primera vez contigo</label></div>'
+    +'<div class="form-row"><label class="form-label">🎂 Fecha de cumpleaños (opcional)</label><input class="form-input" id="iBirthday" type="text" placeholder="Ej: 15/03" value="'+(state.birthday||'')+'" maxlength="5"></div>'
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iHasBono" '+(state.hasBono?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> 🎟️ Tengo un bono</label></div>'
     +(state.hasBono?'<div class="form-row"><label class="form-label">¿Qué tipo de bono?</label><select class="form-input" id="iBonoType"><option value="">Selecciona...</option><option value="Bono 3 Semipermanentes" '+(state.bonoType==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(state.bonoType==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(state.bonoType==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(state.bonoType==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (75€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(state.bonoType==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(state.bonoType==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>':'')
     +'<div class="form-row"><label class="form-label">¿Algo que deba saber? (opcional)</label><textarea class="form-input" id="iNotes" placeholder="Alergias, preferencias de color...">'+state.notes+'</textarea></div>'
@@ -662,6 +663,7 @@ function bind() {
     if (!n||!p){ alert('Por favor, rellena tu nombre y teléfono.'); return; }
     state.name=n; state.phone=p; state.notes=document.getElementById('iNotes').value.trim();
     state.firstTime=document.getElementById('iFirstTime').checked;
+    state.birthday=document.getElementById('iBirthday').value.trim();
     state.hasBono=document.getElementById('iHasBono').checked;
     state.bonoType=state.hasBono?(document.getElementById('iBonoType')?document.getElementById('iBonoType').value:''):'';
     if (state.hasBono && !state.bonoType){ alert('Por favor selecciona el tipo de bono.'); return; }
@@ -714,25 +716,45 @@ function bind() {
       }})
     })
     .then(function(){
-      // If bono, discount one session from client profile
-      if (state.hasBono && state.bonoType) {
-        var tel = state.phone.replace(/\D/g,'');
-        // Find client in SheetDB by phone and update sessions
-        fetch(SHEETDB_URL+'/Teléfono/'+encodeURIComponent(state.phone)+'?sheet=Clientas')
-          .then(function(r){ return r.json(); })
-          .then(function(clientas){
-            if (clientas && clientas.length > 0) {
-              var c = clientas[0];
-              var sesiones = parseInt(c.BonoSesiones||3) - 1;
-              var bonoActivo = sesiones > 0 ? c.Bono : '';
-              fetch(SHEETDB_URL+'/Teléfono/'+encodeURIComponent(state.phone)+'?sheet=Clientas', {
-                method:'PATCH',
-                headers:{'Content-Type':'application/json','Accept':'application/json'},
-                body: JSON.stringify({data:{BonoSesiones: sesiones, Bono: bonoActivo}})
-              });
-            }
-          }).catch(function(){});
-      }
+      var tel = state.phone.replace(/\D/g,'');
+      var notas = (state.hasBono ? '🎟️ '+state.bonoType+'. ' : '') + (state.firstTime ? '✨ Primera vez. ' : '') + (state.brokenNails>0 ? '🔨 '+state.brokenNails+' uña(s) rota(s). ' : '') + state.notes;
+
+      // Check if client already exists
+      fetch(SHEETDB_URL+'?sheet=Clientas')
+        .then(function(r){ return r.json(); })
+        .then(function(clientas){
+          var found = (clientas||[]).find(function(c){
+            return (c['Teléfono']||'').replace(/\D/g,'') === tel;
+          });
+          if (!found) {
+            // Create new client profile automatically
+            fetch(SHEETDB_URL+'?sheet=Clientas', {
+              method:'POST',
+              headers:{'Content-Type':'application/json','Accept':'application/json'},
+              body: JSON.stringify({data:{
+                Nombre: state.name,
+                'Teléfono': state.phone,
+                Producto: '',
+                Alergias: '',
+                Notas: notas,
+                Bono: state.bonoType||'',
+                BonoSesiones: state.hasBono?3:'',
+                Cumpleaños: '',
+                Observaciones: ''
+              }})
+            });
+          } else if (state.hasBono && state.bonoType) {
+            // Update bono sessions
+            var sesiones = parseInt(found.BonoSesiones||3) - 1;
+            var bonoActivo = sesiones > 0 ? found.Bono : '';
+            fetch(SHEETDB_URL+'/Teléfono/'+encodeURIComponent(state.phone)+'?sheet=Clientas', {
+              method:'PATCH',
+              headers:{'Content-Type':'application/json','Accept':'application/json'},
+              body: JSON.stringify({data:{BonoSesiones: sesiones, Bono: bonoActivo}})
+            });
+          }
+        }).catch(function(){});
+
       showLoading(false); state.step=5; render();
     })
     .catch(function(){ showLoading(false); state.step=5; render(); });

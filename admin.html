@@ -346,6 +346,8 @@ function renderClientas() {
       +'<div class="form-row"><label class="form-label">Producto que le va bien</label><input class="form-input" id="cfProducto" value="'+(ec.Producto||'')+'" placeholder="Ej: Base rubber rosa, top coat mate..."></div>'
       +'<div class="form-row"><label class="form-label">Alergias o sensibilidades</label><input class="form-input" id="cfAlergias" value="'+(ec.Alergias||'')+'" placeholder="Ej: Alérgica al metacrilato..."></div>'
       +'<div class="form-row"><label class="form-label">Notas personales</label><textarea class="form-input" id="cfNotas" placeholder="Cualquier cosa que debas recordar...">'+(ec.Notas||'')+'</textarea></div>'
+      +'<div class="form-row"><label class="form-label">Cumpleaños</label><input class="form-input" id="cfCumple" type="text" placeholder="Ej: 15/03" value="'+(ec['Cumpleaños']||'')+'" maxlength="5"></div>'
+      +'<div class="form-row"><label class="form-label">Observaciones (solo para ti)</label><textarea class="form-input" id="cfObs" placeholder="Productos que le van bien, preferencias, detalles del servicio...">'+(ec.Observaciones||'')+'</textarea></div>'
       +'<div class="form-row"><label class="form-label">Bono activo</label><select class="form-input" id="cfBono"><option value="">Sin bono</option><option value="Bono 3 Semipermanentes" '+(ec.Bono==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(ec.Bono==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(ec.Bono==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(ec.Bono==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (75€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(ec.Bono==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(ec.Bono==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>'
       +'<div class="form-row"><label class="form-label">Sesiones restantes del bono</label><input class="form-input" id="cfBonoSesiones" type="number" min="0" max="3" value="'+(ec.BonoSesiones||3)+'" placeholder="3"></div>'
       +'<div style="display:flex;gap:0.8rem;margin-top:0.5rem">'
@@ -371,6 +373,8 @@ function renderClientas() {
         +(c.Producto?'<div class="clienta-field"><div class="clienta-field-label">Producto</div><div class="clienta-field-val">'+c.Producto+'</div></div>':'')
         +(c.Alergias?'<div class="clienta-field"><div class="clienta-field-label">Alergias</div><div class="clienta-field-val">'+c.Alergias+'</div></div>':'')
         +(c.Bono?'<div class="clienta-field"><div class="clienta-field-label">🎟️ Bono activo</div><div class="clienta-field-val">'+c.Bono+' · '+(c.BonoSesiones||'?')+' sesión(es) restante(s)<br><span style="font-size:0.7rem;color:var(--warm-gray)">Validez: 4 meses desde la compra</span></div></div>':'')
+        +(c['Cumpleaños']?'<div class="clienta-field"><div class="clienta-field-label">🎂 Cumpleaños</div><div class="clienta-field-val">'+c['Cumpleaños']+'</div></div>':'')
+        +(c.Observaciones?'<div class="clienta-field"><div class="clienta-field-label">📝 Observaciones</div><div class="clienta-field-val">'+c.Observaciones+'</div></div>':'')
         +(c.Notas?'<div class="clienta-field"><div class="clienta-field-label">Notas</div><div class="clienta-field-val">'+c.Notas+'</div></div>':'')
         +'<div class="clienta-historial"><div class="clienta-historial-title">Últimas citas</div>'+histHtml+'</div>'
         +'<div class="clienta-actions"><button class="btn-edit" data-editidx="'+idx+'">✏️ Editar</button>'
@@ -597,7 +601,33 @@ function renderAdmin() {
   var citasActivas = app.citas.filter(function(c){return c.Estado!=='cancelada';});
   var citasHoy = citasActivas.filter(function(c){return c.Fecha===todayStr;});
   var citasFuturas = citasActivas.filter(function(c){return c.Fecha>=todayStr;});
-  var statsHtml = '<div class="stats">'
+  // Birthday alerts this month
+  var thisMonth = (new Date().getMonth()+1);
+  var cumplesMes = app.clientas.filter(function(c){
+    var cumple = c['Cumpleaños']||'';
+    if (!cumple) return false;
+    var parts = cumple.split('/');
+    return parseInt(parts[1]) === thisMonth;
+  }).sort(function(a,b){
+    return parseInt((a['Cumpleaños']||'0').split('/')[0]) - parseInt((b['Cumpleaños']||'0').split('/')[0]);
+  });
+
+  var birthdayBanner = '';
+  if (cumplesMes.length > 0) {
+    var bItems = cumplesMes.map(function(c){
+      var tel = (c['Teléfono']||'').replace(/[^0-9]/g,'');
+      var msg = encodeURIComponent('Hola '+c.Nombre+'! Desde Nail Glam Estefania te deseamos un feliz cumpleanos! Que pases un dia genial. Un besazo! 💕');
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--light-gray);">'
+        +'<div><strong>'+c.Nombre+'</strong> — el '+c['Cumpleaños']+'</div>'
+        +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa" style="font-size:0.72rem;">🎂 Felicitar</a>'
+        +'</div>';
+    }).join('');
+    birthdayBanner = '<div style="background:linear-gradient(135deg,#FFF4F8,#FAF0FF);border:1.5px solid var(--blush);border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1.5rem;">'
+      +'<div style="font-family:Cormorant Garamond,serif;font-size:1.2rem;margin-bottom:0.8rem;">🎂 Cumpleaños este mes</div>'
+      +bItems+'</div>';
+  }
+
+  var statsHtml = birthdayBanner+'<div class="stats">'
     +'<div class="stat-card" style="cursor:pointer" id="statHoy"><div class="stat-label">Citas hoy</div><div class="stat-value">'+citasHoy.length+'</div><div class="stat-sub">'+todayStr+'</div></div>'
     +'<div class="stat-card" style="cursor:pointer" id="statProximas"><div class="stat-label">Próximas citas</div><div class="stat-value">'+citasFuturas.length+'</div><div class="stat-sub" style="color:var(--rose);font-weight:500;">→ Ver todas</div></div>'
     +'<div class="stat-card" style="cursor:pointer" id="statTotal"><div class="stat-label">Total reservas</div><div class="stat-value">'+citasActivas.length+'</div><div class="stat-sub">Historial completo</div></div>'
@@ -1271,6 +1301,8 @@ function bindEvents() {
       Producto: document.getElementById('cfProducto').value.trim(),
       Alergias: document.getElementById('cfAlergias').value.trim(),
       Notas: document.getElementById('cfNotas').value.trim(),
+      'Cumpleaños': document.getElementById('cfCumple').value.trim(),
+      Observaciones: document.getElementById('cfObs').value.trim(),
       Bono: document.getElementById('cfBono').value,
       BonoSesiones: document.getElementById('cfBonoSesiones').value
     };

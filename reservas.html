@@ -157,7 +157,7 @@ var CONFIG = {
   services: [
     {id:"semi",     name:"Semipermanente",           desc:"Esmaltado de larga duración",                duration:60,  price:"20€"},
     {id:"gel",      name:"Refuerzo con Gel",          desc:"Fortalecimiento con gel para uñas naturales",duration:60,  price:"22€"},
-    {id:"acrigel",  name:"Acrigel",                   desc:"Uñas esculpidas con acrigel",               duration:90,  price:"28€"},
+    {id:"acrigel",  name:"Acrigel",                   desc:"Uñas esculpidas con acrigel",               duration:90,  price:"30€"},
     {id:"relleno-acri", name:"Relleno de Acrigel",     desc:"Mantenimiento y relleno de tu acrigel para mantenerlo perfecto",duration:90, price:"25€"},
     {id:"pies",     name:"Pies",                      desc:"Tratamiento y esmaltado semipermanente en pies",           duration:30,  price:"18€"},
     {id:"pedicura", name:"Pedicura Spa",               desc:"Tratamiento completo de pies: jelly spa, lima en seco, exfoliación e hidratación profunda. No incluye esmaltado. Un lujo para tus pies 💆‍♀️", duration:45, price:"30€"},
@@ -311,7 +311,7 @@ function renderBonoModal() {
   return '<div class="bono-modal-bg" id="bonoModalBg">'
     +'<div class="bono-modal">'
     +'<div class="bono-modal-title">🎟️ ¿Sabías que tengo bonos?</div>'
-    +'<div class="bono-modal-sub">Ahorra comprando un bono de 3 sesiones. Paga una vez y úsalo cuando quieras.<br><strong>Validez: 4 meses desde la fecha de compra.</strong><br>Pago por Bizum, transferencia o efectivo.<br><span style="font-size:0.72rem;color:#CCC;">El bono es personal e intransferible. No reembolsable una vez activado.</span></div>'
+    +'<div class="bono-modal-sub">Ahorra comprando un bono de 3 sesiones. Paga una vez y úsalo cuando quieras.<br><strong>Validez: 4 meses desde la fecha de compra.</strong><br>Pago en efectivo.<br><span style="font-size:0.72rem;color:#CCC;">El bono es personal e intransferible. No reembolsable una vez activado.</span></div>'
     +opts
     +'<button class="btn-primary" id="bonoConfirmBtn" style="margin-top:1rem;">'+(state.bonoType?'Usar mi bono de '+state.bonoType:'Continuar sin bono')+'</button>'
     +'<button class="btn-secondary" id="bonoSkipBtn" style="margin-top:0.5rem;">No me interesa por ahora</button>'

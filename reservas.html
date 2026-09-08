@@ -292,9 +292,9 @@ function getSlots(dateStr, dur) {
 
 var BONOS = [
   {id:'bono-semi', name:'Bono 3 Semipermanentes', normal:'60€', precio:'50€', ahorro:'10€'},
-  {id:'bono-gel',  name:'Bono 3 Refuerzo con Gel', normal:'66€', precio:'55€', ahorro:'11€'},
+  {id:'bono-gel',  name:'Bono 3 Refuerzo con Gel', normal:'69€', precio:'55€', ahorro:'14€'},
   {id:'bono-pies', name:'Bono 3 Pies', normal:'54€', precio:'48€', ahorro:'6€'},
-  {id:'bono-acri', name:'Bono 3 Acrigel', normal:'84€', precio:'75€', ahorro:'9€'},
+  {id:'bono-acri', name:'Bono 3 Acrigel', normal:'90€', precio:'78€', ahorro:'12€'},
   {id:'bono-gel-pies', name:'Bono 3 Refuerzo Gel + Semi Pies', normal:'120€', precio:'105€', ahorro:'15€'},
   {id:'bono-semi-pies', name:'Bono 3 Semi Manos + Semi Pies', normal:'114€', precio:'100€', ahorro:'14€'}
 ];
@@ -311,7 +311,7 @@ function renderBonoModal() {
   return '<div class="bono-modal-bg" id="bonoModalBg">'
     +'<div class="bono-modal">'
     +'<div class="bono-modal-title">🎟️ ¿Sabías que tengo bonos?</div>'
-    +'<div class="bono-modal-sub">Ahorra comprando un bono de 3 sesiones. Paga una vez y úsalo cuando quieras.<br><strong>Validez: 4 meses desde la fecha de compra.</strong><br>Pago en efectivo.<br><span style="font-size:0.72rem;color:#CCC;">El bono es personal e intransferible. No reembolsable una vez activado.</span></div>'
+    +'<div class="bono-modal-sub">Ahorra comprando un bono de 3 sesiones. Paga una vez y úsalo cuando quieras.<br><strong>Validez: 4 meses desde la fecha de compra.</strong><br>Pago en efectivo hasta el 1 de enero.<br><span style="font-size:0.72rem;color:#CCC;">El bono es personal e intransferible. No reembolsable una vez activado.</span></div>'
     +opts
     +'<button class="btn-primary" id="bonoConfirmBtn" style="margin-top:1rem;">'+(state.bonoType?'Usar mi bono de '+state.bonoType:'Continuar sin bono')+'</button>'
     +'<button class="btn-secondary" id="bonoSkipBtn" style="margin-top:0.5rem;">No me interesa por ahora</button>'
@@ -457,10 +457,11 @@ function renderStep3() {
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iFirstTime" '+(state.firstTime?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> ✨ Es mi primera vez contigo</label></div>'
 
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iHasBono" '+(state.hasBono?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> 🎟️ Tengo un bono</label></div>'
-    +(state.hasBono?'<div class="form-row"><label class="form-label">¿Qué tipo de bono?</label><select class="form-input" id="iBonoType"><option value="">Selecciona...</option><option value="Bono 3 Semipermanentes" '+(state.bonoType==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(state.bonoType==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(state.bonoType==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(state.bonoType==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (75€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(state.bonoType==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(state.bonoType==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>':'')
+    +(state.hasBono?'<div class="form-row"><label class="form-label">¿Qué tipo de bono?</label><select class="form-input" id="iBonoType"><option value="">Selecciona...</option><option value="Bono 3 Semipermanentes" '+(state.bonoType==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(state.bonoType==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(state.bonoType==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(state.bonoType==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (78€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(state.bonoType==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(state.bonoType==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>':'')
     +'<div class="form-row"><label class="form-label">¿Algo que deba saber? (opcional)</label><textarea class="form-input" id="iNotes" placeholder="Alergias, preferencias de color...">'+state.notes+'</textarea></div>'
     +'<div class="info-banner"><strong>📋 Política de cancelación:</strong> Si necesitas cancelar o cambiar tu cita, avísame con al menos <strong>24 horas de antelación</strong> por WhatsApp. Las inasistencias repetidas sin aviso pueden afectar a futuras reservas. ¡Gracias por tu comprensión! 💕</div>'
     +'<div class="info-banner" style="margin-top:0.6rem"><strong>⏰ Puntualidad:</strong> Si llegas con más de 15 minutos de retraso, puede que tengamos que reprogramar tu cita para no afectar a otras clientas.</div>'
+    +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.8rem 1rem;margin-top:0.6rem;font-size:0.85rem;color:#856404;text-align:center;"><strong>💵 Pago en efectivo hasta el 1 de enero de 2027</strong></div>'
     +'<div class="info-banner" style="margin-top:0.6rem"><strong>📱 Confirmación:</strong> Al confirmar recibirás un resumen para enviarme por WhatsApp.</div>'
     +'<div style="margin-top:0.8rem;font-size:0.72rem;color:var(--warm-gray);text-align:center;line-height:1.5;">🔒 Tus datos (nombre y teléfono) se usan únicamente para gestionar tu cita y no se comparten con terceros.</div>'
     +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn3">Revisar cita →</button><button class="btn-secondary" id="back3">← Volver</button></div></div>';

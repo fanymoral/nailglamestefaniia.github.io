@@ -296,12 +296,17 @@ function loadData(cb) {
   var clientP = fetchWithTimeout(SHEETDB_URL+'?sheet=Clientas').then(function(r){return r.json();}).catch(function(){return [];});
   var esperaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEspera').then(function(r){return r.json();}).catch(function(){return [];});
   var aperturaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEsperaApertura').then(function(r){return r.json();}).catch(function(){return [];});
-  Promise.all([citasP, bloquP, clientP, esperaP, aperturaP]).then(function(results){
+  var horariosP = fetchWithTimeout(SHEETDB_URL+'?sheet=Horarios').then(function(r){return r.json();}).catch(function(){return [];});
+  Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
     app.citas = results[0] || [];
     app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);
     app.clientas = results[2] || [];
     app.listaEspera = results[3] || [];
     app.listaApertura = results[4] || [];
+    var horarios = results[5] || [];
+    if (horarios.length > 0 && horarios[0].Config) {
+      try { app.schedule = JSON.parse(horarios[0].Config); } catch(e) {}
+    }
     app.loading=false; render(); if(cb)cb();
   }).catch(function(){ app.loading=false; render(); });
 }
@@ -690,7 +695,8 @@ function renderAgenda() {
   // Find hour range across all open days this week
   var minHour = 24, maxHour = 0;
   days.forEach(function(d){
-    var ranges = SCHEDULE[d.getDay()] || [];
+    var schedNow = app.schedule || SCHEDULE;
+    var ranges = schedNow[d.getDay()] || [];
     ranges.forEach(function(r){
       minHour = Math.min(minHour, Math.floor(r[0]/60));
       maxHour = Math.max(maxHour, Math.ceil(r[1]/60));

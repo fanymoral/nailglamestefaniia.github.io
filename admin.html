@@ -725,7 +725,8 @@ function renderAgenda() {
     days.forEach(function(d){
       var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
       var isBlocked = app.blockedDays.indexOf(ds)>=0;
-      var ranges = SCHEDULE[d.getDay()] || [];
+      var schedNow = app.schedule || SCHEDULE;
+      var ranges = schedNow[d.getDay()] || [];
       var isOpen = ranges.some(function(r){ return h*60 >= r[0] && h*60 < r[1]; });
       var cls = 'agenda-cell' + (!isOpen ? ' closed' : '') + (isBlocked ? ' blocked' : '');
 

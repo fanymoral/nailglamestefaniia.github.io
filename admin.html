@@ -707,17 +707,19 @@ function renderAgenda() {
   var today = new Date(); today.setHours(0,0,0,0);
   var citasActivas = app.citas.filter(function(c){return c.Estado!=='cancelada';});
 
-  // Find hour range across all open days this week
-  var minHour = 24, maxHour = 0;
+  // Find minute range across all open days this week (in 30-min steps)
+  var minMins = 24*60, maxMins = 0;
   days.forEach(function(d){
     var schedNow = app.schedule || SCHEDULE;
     var ranges = schedNow[d.getDay()] || [];
     ranges.forEach(function(r){
-      minHour = Math.min(minHour, Math.floor(r[0]/60));
-      maxHour = Math.max(maxHour, Math.ceil(r[1]/60));
+      minMins = Math.min(minMins, Math.floor(r[0]/30)*30);
+      maxMins = Math.max(maxMins, Math.ceil(r[1]/30)*30);
     });
   });
-  if (minHour === 24) { minHour = 9; maxHour = 20; }
+  if (minMins === 24*60) { minMins = 9*60; maxMins = 20*60; }
+  var minHour = Math.floor(minMins/60);
+  var maxHour = Math.ceil(maxMins/60);
 
   // Header
   var headerCells = '<div class="agenda-header-cell"></div>';
@@ -729,32 +731,33 @@ function renderAgenda() {
     return '<div class="'+cls+'"><div class="agenda-header-day">'+DAY_NAMES[d.getDay()]+'</div><div class="agenda-header-num">'+d.getDate()+'</div></div>';
   }).join('');
 
-  // Body rows per hour
+  // Body rows per 30 minutes
   var bodyRows = '';
-  var CELL_HEIGHT = 70;
-  for (var h = minHour; h < maxHour; h++) {
-    var rowHtml = '<div class="agenda-hour-label" style="height:'+CELL_HEIGHT+'px;">'+pad(h)+':00</div>';
+  var CELL_HEIGHT = 50;
+  for (var m30 = minMins; m30 < maxMins; m30 += 30) {
+    var h = Math.floor(m30/60), mm = m30%60;
+    var rowHtml = '<div class="agenda-hour-label" style="height:'+CELL_HEIGHT+'px;font-size:0.65rem;">'+pad(h)+':'+pad(mm)+'</div>';
     days.forEach(function(d){
       var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
       var isBlocked = app.blockedDays.indexOf(ds)>=0;
       var schedNow = app.schedule || SCHEDULE;
       var ranges = schedNow[d.getDay()] || [];
-      var isOpen = ranges.some(function(r){ return h*60 >= r[0] && h*60 < r[1] || (h*60+30) >= r[0] && (h*60+30) < r[1]; });
+      var isOpen = ranges.some(function(r){ return m30 >= r[0] && m30 < r[1]; });
       var cls = 'agenda-cell' + (!isOpen ? ' closed' : '') + (isBlocked ? ' blocked' : '');
 
-      // Find citas that start in this hour slot
+      // Find citas that start in this 30-min slot
       var slotCitas = citasActivas.filter(function(c){
         if (c.Fecha !== ds) return false;
         var cMins = timeToMins(c.Hora);
-        return cMins >= h*60 && cMins < (h+1)*60;
+        return cMins >= m30 && cMins < m30+30;
       });
 
       var appts = slotCitas.map(function(c){
         var startM = timeToMins(c.Hora);
         var durStr = c['Duración'] || c.Duracion || c.Duraci_n || '60 min';
         var dur = parseInt(durStr) || 60;
-        var topPct = ((startM - h*60) / 60) * 100;
-        var heightPx = Math.max(dur * CELL_HEIGHT/60, 26);
+        var topPct = ((startM - m30) / 30) * 100;
+        var heightPx = Math.max(dur * CELL_HEIGHT/30, 26);
         var svcCls = getSvcClass(c.Servicio);
         var hasBono = (c.Notas||'').indexOf('🎟️') >= 0;
         return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="top:'+topPct+'%;height:'+heightPx+'px">'

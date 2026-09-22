@@ -87,6 +87,9 @@
   .info-banner { background: linear-gradient(135deg, #FFF4F8, #FFE8F2); border: 1px solid var(--blush); border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.78rem; color: var(--dark-rose); margin-top: 1rem; line-height: 1.5; }
   .loading-overlay { position: fixed; inset: 0; background: rgba(250,246,241,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
   .broken-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:center; justify-content:center; z-index:998; padding:1rem; }
+  .deco-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:center; justify-content:center; z-index:996; padding:1rem; }
+  .deco-modal { background:var(--white); border-radius:20px; padding:2rem; max-width:380px; width:100%; animation:fadeUp 0.3s ease both; text-align:center; }
+  .deco-modal-title { font-family:'Cormorant Garamond',serif; font-size:1.5rem; margin-bottom:0.8rem; }
   .bono-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:flex-start; justify-content:center; z-index:997; padding:1rem; overflow-y:auto; }
   .bono-modal { background:var(--white); border-radius:20px; padding:1.8rem; max-width:400px; width:100%; animation:fadeUp 0.3s ease both; margin:auto; }
   .bono-modal-title { font-family:'Cormorant Garamond',serif; font-size:1.6rem; margin-bottom:0.3rem; text-align:center; }
@@ -158,7 +161,7 @@ var CONFIG = {
     {id:"semi",     name:"Semipermanente",           desc:"Esmaltado de larga duración",                duration:60,  price:"20€"},
     {id:"gel",      name:"Refuerzo con Gel",          desc:"Fortalecimiento con gel para uñas naturales",duration:60,  price:"22€"},
     {id:"acrigel",  name:"Acrigel",                   desc:"Uñas esculpidas con acrigel",               duration:90,  price:"30€"},
-    {id:"relleno-acri", name:"Relleno de Acrigel",     desc:"Mantenimiento y relleno de tu acrigel para mantenerlo perfecto",duration:90, price:"25€"},
+    {id:"relleno-acri", name:"Relleno de Acrigel",     desc:"Mantenimiento y relleno de tu acrigel para mantenerlo perfecto",duration:90, price:"27€"},
     {id:"pies",     name:"Pies",                      desc:"Tratamiento y esmaltado semipermanente en pies",           duration:30,  price:"18€"},
     {id:"pedicura", name:"Pedicura Spa",               desc:"Tratamiento completo de pies: jelly spa, lima en seco, exfoliación e hidratación profunda. No incluye esmaltado. Un lujo para tus pies 💆‍♀️", duration:45, price:"30€"},
     {id:"deco-basic", name:"Decoración básica",      desc:"Efecto cromado, línea, puntos, degradados, efecto glitter o 3D en una uña",                                                                         duration:0,  price:"2€"},
@@ -299,6 +302,20 @@ var BONOS = [
   {id:'bono-semi-pies', name:'Bono 3 Semi Manos + Semi Pies', normal:'114€', precio:'100€', ahorro:'14€'}
 ];
 
+function renderDecoModal() {
+  return '<div class="deco-modal-bg" id="decoModalBg">'
+    +'<div class="deco-modal">'
+    +'<div style="font-size:2rem;margin-bottom:0.5rem;">💅✨</div>'
+    +'<div class="deco-modal-title">¡Consejo sobre la decoración!</div>'
+    +'<p style="font-size:0.85rem;color:var(--warm-gray);line-height:1.7;margin-bottom:1.2rem;">'
+    +'Si tienes dudas sobre qué decoración elegir o quieres que te asesore, '
+    +'<strong>mándame una foto por WhatsApp</strong> con la idea que tienes en mente y te ayudo a elegir lo que mejor te queda. 💕'
+    +'</p>'
+    +'<a href="https://wa.me/34672574200" target="_blank" class="btn-wa" style="display:block;text-align:center;padding:0.8rem;margin-bottom:0.6rem;justify-content:center;">💬 Enviarme una foto por WhatsApp</a>'
+    +'<button class="btn-secondary" onclick="state.showDecoModal=false;render();" style="width:100%;">Continuar sin foto</button>'
+    +'</div></div>';
+}
+
 function renderBonoModal() {
   var opts = BONOS.map(function(b){
     var sel = state.bonoType === b.name ? ' selected' : '';
@@ -386,11 +403,13 @@ function renderStep1() {
     : '';
 
   var modalHtml = state.showBrokenModal ? renderBrokenModal() : '';
+  var decoModalHtml = state.showDecoModal ? renderDecoModal() : '';
 
   return '<div class="card"><div class="card-title">Elige tus servicios<small>Puedes seleccionar más de uno</small></div><div class="services-grid">'+btns+'</div>'
     +summaryHtml
     +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn1"'+(state.services.length?'':' disabled')+'>Continuar →</button></div></div>'
-    +modalHtml;
+    +modalHtml
+    +decoModalHtml;
 }
 
 function renderBrokenModal() {
@@ -553,6 +572,10 @@ function bind() {
         // Show broken nails modal when semi is selected
         if (svc.id === 'semi') {
           state.showBrokenModal = true;
+        }
+        // Show deco advice modal when decoration is selected
+        if (svc.id === 'deco-basic' || svc.id === 'deco-mid' || svc.id === 'deco-full') {
+          state.showDecoModal = true;
         }
       }
       state.date=null; state.time=null;

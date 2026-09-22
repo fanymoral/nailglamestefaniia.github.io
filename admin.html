@@ -133,7 +133,7 @@
   .agenda-header-cell.blocked-head { background: #EEE; border-radius: 10px; }
   .agenda-body { display: grid; grid-template-columns: 60px repeat(7, 1fr); }
   .agenda-hour-label { font-size: 0.7rem; color: var(--warm-gray); text-align: right; padding-right: 8px; height: 50px; display: flex; align-items: flex-start; padding-top: 4px; border-right: 1px solid var(--light-gray); }
-  .agenda-cell { border-left: 1px solid #999; border-bottom: 1px solid #999; height: 60px; position: relative; background: #FFFFFF; }
+  .agenda-cell { border-left: 1px solid #999; border-bottom: 1px solid #999; position: relative; background: #FFFFFF; }
   .agenda-cell.closed, .agenda-cell.blocked { background: repeating-linear-gradient(45deg, #E8E2E6, #E8E2E6 6px, #D8CED4 6px, #D8CED4 12px); }
   .agenda-hour-label { border-right: 1px solid #999 !important; }
   .agenda-appt { position: absolute; left: 2px; right: 2px; border-radius: 6px; padding: 4px 6px; font-size: 0.68rem; line-height: 1.4; overflow: hidden; cursor: pointer; transition: opacity 0.2s; z-index: 1; }
@@ -732,45 +732,59 @@ function renderAgenda() {
   }).join('');
 
   // Body rows per 30 minutes
-  var bodyRows = '';
-  var CELL_HEIGHT = 50;
+  var CELL_HEIGHT = 60;
+  var totalMins = maxMins - minMins;
+  var totalHeight = (totalMins / 30) * CELL_HEIGHT;
+
+  // Build time labels column
+  var timeLabels = '';
   for (var m30 = minMins; m30 < maxMins; m30 += 30) {
     var h = Math.floor(m30/60), mm = m30%60;
-    var rowHtml = '<div class="agenda-hour-label" style="height:'+CELL_HEIGHT+'px;font-size:0.65rem;">'+pad(h)+':'+pad(mm)+'</div>';
-    days.forEach(function(d){
-      var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-      var isBlocked = app.blockedDays.indexOf(ds)>=0;
-      var schedNow = app.schedule || SCHEDULE;
+    timeLabels += '<div class="agenda-hour-label" style="height:'+CELL_HEIGHT+'px;font-size:0.65rem;">'+pad(h)+':'+pad(mm)+'</div>';
+  }
+
+  // Build day columns
+  var dayCols = days.map(function(d){
+    var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    var isBlocked = app.blockedDays.indexOf(ds)>=0;
+    var schedNow = app.schedule || SCHEDULE;
+
+    // Build background cells
+    var cells = '';
+    for (var m30 = minMins; m30 < maxMins; m30 += 30) {
       var ranges = schedNow[d.getDay()] || [];
       var isOpen = ranges.some(function(r){ return m30 >= r[0] && m30 < r[1]; });
       var cls = 'agenda-cell' + (!isOpen ? ' closed' : '') + (isBlocked ? ' blocked' : '');
+      cells += '<div class="'+cls+'" style="height:'+CELL_HEIGHT+'px;"></div>';
+    }
 
-      // Find citas that start in this 30-min slot
-      var slotCitas = citasActivas.filter(function(c){
-        if (c.Fecha !== ds) return false;
-        var cMins = timeToMins(c.Hora);
-        return cMins >= m30 && cMins < m30+30;
-      });
+    // Build appointments absolutely positioned
+    var appts = citasActivas.filter(function(c){ return c.Fecha === ds; }).map(function(c){
+      var startM = timeToMins(c.Hora);
+      var durStr = c['Duración'] || c.Duracion || c.Duraci_n || '60 min';
+      var dur = parseInt(durStr) || 60;
+      var topPx = ((startM - minMins) / 30) * CELL_HEIGHT;
+      var heightPx = Math.max((dur / 30) * CELL_HEIGHT + (dur / 30), 26);
+      var svcCls = getSvcClass(c.Servicio);
+      var hasBono = (c.Notas||'').indexOf('🎟️') >= 0;
+      return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="position:absolute;top:'+topPx+'px;height:'+heightPx+'px;left:2px;right:2px;z-index:2;">'
+        +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
+        +'<div class="aa-name">'+c.Nombre+'</div>'
+        +'<div class="aa-service">'+c.Servicio+'</div>'
+        +'</div>';
+    }).join('');
 
-      var appts = slotCitas.map(function(c){
-        var startM = timeToMins(c.Hora);
-        var durStr = c['Duración'] || c.Duracion || c.Duraci_n || '60 min';
-        var dur = parseInt(durStr) || 60;
-        var topPct = ((startM - m30) / 30) * 100;
-        var heightPx = Math.max(dur * CELL_HEIGHT/30, 26);
-        var svcCls = getSvcClass(c.Servicio);
-        var hasBono = (c.Notas||'').indexOf('🎟️') >= 0;
-        return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="top:'+topPct+'%;height:'+heightPx+'px">'
-          +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
-          +'<div class="aa-name">'+c.Nombre+'</div>'
-          +'<div class="aa-service">'+c.Servicio+'</div>'
-          +'</div>';
-      }).join('');
+    return '<div style="position:relative;flex:1;min-width:0;">'+cells+appts+'</div>';
+  }).join('');
 
-      rowHtml += '<div class="'+cls+'">'+appts+'</div>';
-    });
-    bodyRows += rowHtml;
-  }
+  // Assemble using flex
+  var bodyRows = '<div style="display:flex;">'
+    +'<div style="width:42px;flex-shrink:0;">'+timeLabels+'</div>'
+    +'<div style="display:flex;flex:1;min-width:0;">'+dayCols+'</div>'
+    +'</div>';
+
+  // Override the normal grid assembly below
+  var _skipGrid = true;
 
   var legend = [
     {cls:'svc-semi', label:'Semipermanente'},
@@ -804,7 +818,7 @@ function renderAgenda() {
     +'</div>'
     +'<div class="agenda-wrap"><div class="agenda-table">'
     +'<div class="agenda-header">'+headerCells+'</div>'
-    +'<div class="agenda-body">'+bodyRows+'</div>'
+    +'<div class="agenda-body" style="overflow-x:auto;">'+bodyRows+'</div>'
     +'</div></div>'
     +legendHtml;
 }

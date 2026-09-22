@@ -124,14 +124,14 @@
   /* AGENDA MEJORADA */
   .agenda-wrap { overflow-x: auto; }
   .agenda-table { display: grid; min-width: 600px; }
-  .agenda-header { display: grid; grid-template-columns: 60px repeat(7, 1fr); border-bottom: 2px solid var(--light-gray); margin-bottom: 0; }
+  .agenda-header { display: grid; grid-template-columns: 42px repeat(7, 1fr); border-bottom: 2px solid var(--light-gray); margin-bottom: 0; }
   .agenda-header-cell { text-align: center; padding: 0.5rem 0.3rem; }
   .agenda-header-day { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--warm-gray); }
   .agenda-header-num { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 300; }
   .agenda-header-cell.today-head { background: var(--rose); border-radius: 10px; color: white; }
   .agenda-header-cell.today-head .agenda-header-day { color: rgba(255,255,255,0.8); }
   .agenda-header-cell.blocked-head { background: #EEE; border-radius: 10px; }
-  .agenda-body { display: grid; grid-template-columns: 60px repeat(7, 1fr); }
+  .agenda-body { display: grid; grid-template-columns: 42px repeat(7, 1fr); }
   .agenda-hour-label { font-size: 0.7rem; color: var(--warm-gray); text-align: right; padding-right: 8px; height: 50px; display: flex; align-items: flex-start; padding-top: 4px; border-right: 1px solid var(--light-gray); }
   .agenda-cell { border-left: 1px solid #999; border-bottom: 1px solid #999; position: relative; background: #FFFFFF; }
   .agenda-cell.closed, .agenda-cell.blocked { background: repeating-linear-gradient(45deg, #E8E2E6, #E8E2E6 6px, #D8CED4 6px, #D8CED4 12px); }
@@ -711,13 +711,14 @@ function renderAgenda() {
   var minMins = 24*60, maxMins = 0;
   days.forEach(function(d){
     var schedNow = app.schedule || SCHEDULE;
-    var ranges = schedNow[d.getDay()] || [];
+    var dow = d.getDay();
+    var ranges = schedNow[dow] || schedNow[String(dow)] || [];
     ranges.forEach(function(r){
       minMins = Math.min(minMins, Math.floor(r[0]/30)*30);
       maxMins = Math.max(maxMins, Math.ceil(r[1]/30)*30);
     });
   });
-  if (minMins === 24*60) { minMins = 9*60; maxMins = 20*60; }
+  if (minMins === 24*60) { minMins = 16*60; maxMins = 20*60+30; }
   var minHour = Math.floor(minMins/60);
   var maxHour = Math.ceil(maxMins/60);
 
@@ -736,55 +737,47 @@ function renderAgenda() {
   var totalMins = maxMins - minMins;
   var totalHeight = (totalMins / 30) * CELL_HEIGHT;
 
-  // Build time labels column
-  var timeLabels = '';
+  // Build grid rows: time label + 7 day cells per row
+  var bodyRows = '';
+  var CELL_HEIGHT = 80;
   for (var m30 = minMins; m30 < maxMins; m30 += 30) {
-    var h = Math.floor(m30/60), mm = m30%60;
-    timeLabels += '<div class="agenda-hour-label" style="height:'+CELL_HEIGHT+'px;font-size:0.65rem;">'+pad(h)+':'+pad(mm)+'</div>';
-  }
-
-  // Build day columns
-  var dayCols = days.map(function(d){
-    var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    var isBlocked = app.blockedDays.indexOf(ds)>=0;
-    var schedNow = app.schedule || SCHEDULE;
-
-    // Build background cells
-    var cells = '';
-    for (var m30 = minMins; m30 < maxMins; m30 += 30) {
-      var ranges = schedNow[d.getDay()] || [];
+    var h30 = Math.floor(m30/60), mm30 = m30%60;
+    var rowHtml = '<div class="agenda-hour-label" style="height:'+CELL_HEIGHT+'px;font-size:0.65rem;line-height:'+CELL_HEIGHT+'px;">'+pad(h30)+':'+pad(mm30)+'</div>';
+    days.forEach(function(d){
+      var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+      var isBlocked = app.blockedDays.indexOf(ds)>=0;
+      var schedNow = app.schedule || SCHEDULE;
+      var dow = d.getDay();
+      var ranges = schedNow[dow] || schedNow[String(dow)] || [];
       var isOpen = ranges.some(function(r){ return m30 >= r[0] && m30 < r[1]; });
       var cls = 'agenda-cell' + (!isOpen ? ' closed' : '') + (isBlocked ? ' blocked' : '');
-      cells += '<div class="'+cls+'" style="height:'+CELL_HEIGHT+'px;"></div>';
-    }
 
-    // Build appointments absolutely positioned
-    var appts = citasActivas.filter(function(c){ return c.Fecha === ds; }).map(function(c){
-      var startM = timeToMins(c.Hora);
-      var durStr = c['Duración'] || c.Duracion || c.Duraci_n || '60 min';
-      var dur = parseInt(durStr) || 60;
-      var topPx = ((startM - minMins) / 30) * CELL_HEIGHT;
-      var heightPx = Math.max((dur / 30) * CELL_HEIGHT, 26);
-      var svcCls = getSvcClass(c.Servicio);
-      var hasBono = (c.Notas||'').indexOf('🎟️') >= 0;
-      return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="position:absolute;top:'+topPx+'px;height:'+heightPx+'px;left:2px;right:2px;z-index:2;">'
-        +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
-        +'<div class="aa-name">'+c.Nombre+'</div>'
-        +'<div class="aa-service">'+c.Servicio+'</div>'
-        +'</div>';
-    }).join('');
+      // Find citas that start in this 30-min slot
+      var slotCitas = citasActivas.filter(function(c){
+        if (c.Fecha !== ds) return false;
+        var cMins = timeToMins(c.Hora);
+        return cMins >= m30 && cMins < m30+30;
+      });
 
-    return '<div style="position:relative;flex:1;min-width:0;">'+cells+appts+'</div>';
-  }).join('');
+      var appts = slotCitas.map(function(c){
+        var startM = timeToMins(c.Hora);
+        var durStr = c['Duración'] || c.Duracion || c.Duraci_n || '60 min';
+        var dur = parseInt(durStr) || 60;
+        var topPct = ((startM - m30) / 30) * 100;
+        var heightPx = Math.max((dur / 30) * CELL_HEIGHT, 26);
+        var svcCls = getSvcClass(c.Servicio);
+        var hasBono = (c.Notas||'').indexOf('🎟️') >= 0;
+        return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;">'
+          +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
+          +'<div class="aa-name">'+c.Nombre+'</div>'
+          +'<div class="aa-service">'+c.Servicio+'</div>'
+          +'</div>';
+      }).join('');
 
-  // Assemble using flex
-  var bodyRows = '<div style="display:flex;">'
-    +'<div style="width:42px;flex-shrink:0;">'+timeLabels+'</div>'
-    +'<div style="display:flex;flex:1;min-width:0;">'+dayCols+'</div>'
-    +'</div>';
-
-  // Override the normal grid assembly below
-  var _skipGrid = true;
+      rowHtml += '<div class="'+cls+'" style="height:'+CELL_HEIGHT+'px;">'+appts+'</div>';
+    });
+    bodyRows += rowHtml;
+  }
 
   var legend = [
     {cls:'svc-semi', label:'Semipermanente'},

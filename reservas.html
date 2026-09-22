@@ -720,6 +720,7 @@ function bind() {
     var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
     var svcPrices=state.services.map(function(s){return s.price;}).join(' + ');
     var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
+    if (state.brokenNails > 4) totalDur += 15;
     showLoading(true);
     fetch(SHEETDB_URL, {
       method:'POST',

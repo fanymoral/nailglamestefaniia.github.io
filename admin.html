@@ -732,7 +732,7 @@ function renderAgenda() {
   }).join('');
 
   // Body rows per 30 minutes
-  var CELL_HEIGHT = 60;
+  var CELL_HEIGHT = 80;
   var totalMins = maxMins - minMins;
   var totalHeight = (totalMins / 30) * CELL_HEIGHT;
 
@@ -764,7 +764,7 @@ function renderAgenda() {
       var durStr = c['Duración'] || c.Duracion || c.Duraci_n || '60 min';
       var dur = parseInt(durStr) || 60;
       var topPx = ((startM - minMins) / 30) * CELL_HEIGHT;
-      var heightPx = Math.max((dur / 30) * CELL_HEIGHT + (dur / 30), 26);
+      var heightPx = Math.max((dur / 30) * CELL_HEIGHT, 26);
       var svcCls = getSvcClass(c.Servicio);
       var hasBono = (c.Notas||'').indexOf('🎟️') >= 0;
       return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="position:absolute;top:'+topPx+'px;height:'+heightPx+'px;left:2px;right:2px;z-index:2;">'

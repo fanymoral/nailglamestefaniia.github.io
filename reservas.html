@@ -698,14 +698,17 @@ function bind() {
   var bk2=document.getElementById('back2');
   if (bk2) bk2.addEventListener('click',function(){ state.step=1; render(); });
 
-  // Bono modal
-  document.querySelectorAll('.bono-option[data-bono]').forEach(function(el){
-    el.addEventListener('click', function(){
-      state.bonoType = state.bonoType === el.dataset.bono ? '' : el.dataset.bono;
+  // Bono modal — delegación para evitar listeners duplicados tras render()
+  if (!window._bonoDelegated) {
+    window._bonoDelegated = true;
+    document.addEventListener('click', function(e){
+      var opt = e.target.closest('.bono-option[data-bono]');
+      if (!opt) return;
+      state.bonoType = state.bonoType === opt.dataset.bono ? '' : opt.dataset.bono;
       state.hasBono = !!state.bonoType;
       render();
     });
-  });
+  }
   var bonoConfirm = document.getElementById('bonoConfirmBtn');
   if (bonoConfirm) bonoConfirm.addEventListener('click', function(){
     state.showBonoModal = false; render();
@@ -750,41 +753,41 @@ function bind() {
   if (bc) bc.addEventListener('click',function(){
     state.showPayModal = true; render();
   });
-function confirmBooking() {
-    state.showPayModal = false;
-    if (isSlotTaken(state.date,state.time)){
-      alert('¡Vaya! Alguien acaba de reservar ese horario. Por favor elige otro.');
-      state.time=null; state.step=2; render(); return;
-    }
-    var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
-    var svcPrices=state.services.map(function(s){return s.price;}).join(' + ');
-    var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
-    if (state.brokenNails > 4) totalDur += 15;
-    showLoading(true);
-    fetch(SHEETDB_URL, {
-      method:'POST',
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-      body: JSON.stringify({data: {
-        ID: Date.now(),
-        Fecha: state.date,
-        Hora: state.time,
-        Servicio: svcNames,
-        Precio: svcPrices,
-        'Duración': totalDur+' min',
-        Nombre: state.name,
-        'Teléfono': state.phone,
-        Notas: (state.hasBono ? '🎟️ '+state.bonoType+'. ' : '') + (state.firstTime ? '✨ Primera vez. ' : '') + (state.brokenNails>0 ? '🔨 '+state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
-        'Reservada el': new Date().toLocaleString('es-ES'),
-        Estado: 'confirmada'
-      }})
-    })
-    .then(function(){
-      showLoading(false); state.step=5; render();
-    })
-    .catch(function(){ showLoading(false); state.step=5; render(); });
-}
-
 } // end bind()
+
+function confirmBooking() {
+  state.showPayModal = false;
+  if (isSlotTaken(state.date,state.time)){
+    alert('¡Vaya! Alguien acaba de reservar ese horario. Por favor elige otro.');
+    state.time=null; state.step=2; render(); return;
+  }
+  var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
+  var svcPrices=state.services.map(function(s){return s.price;}).join(' + ');
+  var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
+  if (state.brokenNails > 4) totalDur += 15;
+  showLoading(true);
+  fetch(SHEETDB_URL, {
+    method:'POST',
+    headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+    body: JSON.stringify({data: {
+      ID: Date.now(),
+      Fecha: state.date,
+      Hora: state.time,
+      Servicio: svcNames,
+      Precio: svcPrices,
+      'Duración': totalDur+' min',
+      Nombre: state.name,
+      'Teléfono': state.phone,
+      Notas: (state.hasBono ? 'Bono: '+state.bonoType+'. ' : '') + (state.firstTime ? 'Primera vez. ' : '') + (state.brokenNails>0 ? state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
+      'Reservada el': new Date().toLocaleString('es-ES'),
+      Estado: 'confirmada'
+    }})
+  })
+  .then(function(){
+    showLoading(false); state.step=5; render();
+  })
+  .catch(function(){ showLoading(false); state.step=5; render(); });
+}
 
 function renderWelcomeModal() {
   return '<div class="welcome-modal-bg" id="welcomeModalBg">'

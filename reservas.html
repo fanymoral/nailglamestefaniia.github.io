@@ -673,18 +673,10 @@ function bind() {
     state.waitlistName = n; state.waitlistPhone = p;
     var svcNames = state.services.map(function(s){return s.name;}).join(' + ') || 'Sin especificar';
     wlSubmitBtn.textContent = 'Guardando...'; wlSubmitBtn.disabled = true;
-    fetch(SHEETDB_URL+'?sheet=ListaEspera', {
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({data:{
-        Nombre: n,
-        'Teléfono': p,
-        Fecha: state.date,
-        Servicio: svcNames,
-        'Añadida el': new Date().toLocaleString('es-ES')
-      }})
-    }).then(function(){
+    var wlData = [{Nombre:n,'Teléfono':p,Fecha:state.date,Servicio:svcNames,'Añadida el':new Date().toLocaleString('es-ES')}];
+    var wlEncoded = btoa(unescape(encodeURIComponent(JSON.stringify(wlData))));
+    fetch(SHEETDB_URL+'?_action=insert&sheet=ListaEspera&_data='+encodeURIComponent(wlEncoded))
+    .then(function(){
       state.showWaitlist = false;
       state.waitlistName = ''; state.waitlistPhone = '';
       // Show success message
@@ -804,12 +796,8 @@ function confirmBooking() {
     }
   }, 30000);
 
-  fetch(SHEETDB_URL+'?sheet=Citas', {
-    method:'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type': 'text/plain'},
-    body: JSON.stringify({data: citaData})
-  })
+  var encoded = btoa(unescape(encodeURIComponent(JSON.stringify([citaData]))));
+  fetch(SHEETDB_URL+'?_action=insert&sheet=Citas&_data='+encodeURIComponent(encoded))
   .then(function(r){
     if (!done) { done = true; clearTimeout(timeout); showLoading(false); state.step=5; render(); }
   })

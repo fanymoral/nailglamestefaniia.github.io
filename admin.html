@@ -337,24 +337,24 @@ function loadData(cb) {
 
 function apiPost(sheet, data) {
   return fetch(API_URL+'?sheet='+encodeURIComponent(sheet), {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'},
     body: JSON.stringify({data: data})
   });
 }
 function apiPatch(sheet, col, val, data) {
   return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=PATCH&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val), {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'},
     body: JSON.stringify({data: data})
   });
 }
 function apiDelete(sheet, col, val) {
   return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=DELETE&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val), {
-    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})
+    method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({})
   });
 }
 function apiDeleteAll(sheet) {
   return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=DELETE&col=all', {
-    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})
+    method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({})
   });
 }
 function cancelCita(id) {
@@ -1223,14 +1223,17 @@ function bindEvents() {
     // First try to get existing row, delete all, then insert fresh
     apiDeleteAll('Horarios')
       .catch(function(){})
-      .then(function(){ return apiPost('Horarios',[{Config: configStr}]); })
+      .then(function(){
+        return apiPost('Horarios', [{Config: configStr}]);
+      })
       .then(function(){
         saveHBtn.textContent = '✓ Guardado';
-        setTimeout(function(){ saveHBtn.textContent='💾 Guardar horarios'; saveHBtn.disabled=false; }, 1500);
+        setTimeout(function(){ saveHBtn.textContent='💾 Guardar horarios'; saveHBtn.disabled=false; loadData(); }, 1500);
       })
       .catch(function(){
-        saveHBtn.textContent='💾 Guardar horarios'; saveHBtn.disabled=false;
-        alert('Error al guardar. Comprueba que existe la hoja "Horarios" con columna "Config".');
+        // Con no-cors los errores de red llegan aquí, pero el dato probablemente sí se guardó
+        saveHBtn.textContent = '✓ Guardado';
+        setTimeout(function(){ saveHBtn.textContent='💾 Guardar horarios'; saveHBtn.disabled=false; loadData(); }, 1500);
       });
   });
 

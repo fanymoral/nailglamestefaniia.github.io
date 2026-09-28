@@ -264,7 +264,8 @@ var app = {
   statsMonth: null,
   citaFilter: '',
   listaEspera: [],
-  listaApertura: []
+  listaApertura: [],
+  rescheduling: false
 };
 
 function switchTab(t){ app.tab=t; render(); }
@@ -351,6 +352,29 @@ function apiDeleteAll(sheet) {
 }
 function cancelCita(id) {
   apiPatch('Citas','ID',id,{Estado:'cancelada'}).then(function(){ loadData(); });
+}
+
+function completarCita(cita, onDone) {
+  apiPatch('Citas','ID',cita.ID,{Estado:'completada'}).then(function(){
+    // Si tiene bono, restar sesión a la clienta
+    var notas = cita.Notas || cita.notas || '';
+    var esBono = notas.indexOf('Bono') >= 0 || notas.indexOf('bono') >= 0;
+    if (esBono) {
+      var tel = (cita['Teléfono'] || cita.Telefono || '').replace(/\D/g,'');
+      var clienta = (app.clientas || []).find(function(cl){
+        return (cl['Teléfono']||'').replace(/\D/g,'') === tel;
+      });
+      if (clienta) {
+        var sesiones = parseInt(clienta.BonoSesiones || 0) || 0;
+        var nuevasSesiones = Math.max(0, sesiones - 1);
+        apiPatch('Clientas','Nombre',clienta.Nombre,{BonoSesiones: String(nuevasSesiones)}).then(function(){
+          if (onDone) onDone(); else loadData();
+        });
+        return;
+      }
+    }
+    if (onDone) onDone(); else loadData();
+  });
 }
 function blockDay(dateStr) {
   apiPost('Bloqueados',{Fecha:dateStr}).then(function(){ loadData(); });
@@ -789,6 +813,7 @@ function renderAgenda() {
       var ranges = schedNow[dow] || schedNow[String(dow)] || [];
       var isOpen = ranges.some(function(r){ return m30 >= r[0] && m30 < r[1]; });
       var cls = 'agenda-cell' + (!isOpen ? ' closed' : '') + (isBlocked ? ' blocked' : '');
+      var slotTime = pad(Math.floor(m30/60))+':'+pad(m30%60);
 
       // Find citas that start in this 30-min slot
       var slotCitas = citasActivas.filter(function(c){
@@ -805,14 +830,14 @@ function renderAgenda() {
         var heightPx = Math.max((dur / 30) * CELL_HEIGHT, 26);
         var svcCls = getSvcClass(c.Servicio);
         var hasBono = (c.Notas||'').indexOf('🎟️') >= 0 || (c.Notas||'').indexOf('Bono') >= 0 || (c.Notas||'').indexOf('bono') >= 0;
-        return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;">'
+        return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" draggable="true" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;">'
           +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
           +'<div class="aa-name">'+c.Nombre+'</div>'
           +'<div class="aa-service">'+c.Servicio+'</div>'
           +'</div>';
       }).join('');
 
-      rowHtml += '<div class="'+cls+'" style="height:'+CELL_HEIGHT+'px;">'+appts+'</div>';
+      rowHtml += '<div class="'+cls+'" data-dropdate="'+ds+'" data-droptime="'+slotTime+'" style="height:'+CELL_HEIGHT+'px;">'+appts+'</div>';
     });
     bodyRows += rowHtml;
   }
@@ -1026,6 +1051,15 @@ function renderModal() {
     +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReminder+'" target="_blank" class="btn-wa" style="justify-content:center;padding:0.8rem;">Enviar recordatorio</a>':'')
     +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReview+'" target="_blank" class="btn-wa" style="background:#E8829F;justify-content:center;padding:0.8rem;">Pedir reseña</a>':'')
     +(!isCancelled&&!isCompleted?'<button class="btn-done" id="modalDoneBtn" style="padding:0.8rem;">✓ Marcar como completada</button>':'')
+    +(!isCancelled?'<button id="modalRescheduleBtn" style="padding:0.8rem;background:none;border:1.5px solid var(--rose);color:var(--rose);border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.88rem;cursor:pointer;">📅 Cambiar fecha / hora</button>':'')
+    +(app.rescheduling?'<div style="background:var(--light-gray);border-radius:10px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;">'
+      +'<div style="font-size:0.8rem;font-weight:500;color:var(--espresso)">Nueva fecha y hora:</div>'
+      +'<input type="date" id="rescheduleDate" value="'+c.Fecha+'" style="border:1.5px solid var(--light-gray);border-radius:8px;padding:0.6rem;font-family:DM Sans,sans-serif;font-size:0.9rem;outline:none;">'
+      +'<input type="time" id="rescheduleTime" value="'+c.Hora+'" style="border:1.5px solid var(--light-gray);border-radius:8px;padding:0.6rem;font-family:DM Sans,sans-serif;font-size:0.9rem;outline:none;">'
+      +'<div style="display:flex;gap:0.5rem;">'
+      +'<button id="rescheduleConfirmBtn" style="flex:1;padding:0.7rem;background:var(--espresso);color:var(--cream);border:none;border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;">Confirmar cambio</button>'
+      +'<button id="rescheduleCancelBtn" style="padding:0.7rem 1rem;background:none;border:1.5px solid var(--warm-gray);color:var(--warm-gray);border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;">Cancelar</button>'
+      +'</div></div>':'')
     +(!isCancelled&&!isCompleted?'<button class="modal-cancel" id="modalCancelBtn" style="padding:0.8rem;">✕ Cancelar cita</button>':'')
     +'<button class="modal-close" id="modalClose" style="padding:0.8rem;">Cerrar</button>'
     +'</div></div></div>';
@@ -1087,13 +1121,39 @@ function bindEvents() {
   var nw = document.getElementById('nextWeek');
   if (nw) nw.addEventListener('click', function(){ app.weekOffset++; render(); });
 
-  // Cita click (agenda)
+  // Drag & drop en agenda
+  var dragId = null;
   document.querySelectorAll('.agenda-appt[data-cid]').forEach(function(el){
+    el.addEventListener('dragstart', function(e){
+      dragId = el.dataset.cid;
+      e.dataTransfer.effectAllowed = 'move';
+      el.style.opacity = '0.4';
+    });
+    el.addEventListener('dragend', function(){ el.style.opacity = ''; dragId = null; });
     el.addEventListener('click', function(){
       var id = el.dataset.cid;
       var found = app.citas.find(function(c){ return String(c.ID)===String(id); });
       if (!found) found = app.citas.find(function(c){ return String(c.ID).trim()===String(id).trim(); });
-      if (found) { app.modal = found; render(); }
+      if (found) { app.rescheduling=false; app.modal = found; render(); }
+    });
+  });
+  document.querySelectorAll('[data-dropdate]').forEach(function(cell){
+    cell.addEventListener('dragover', function(e){ e.preventDefault(); cell.style.background='rgba(232,130,159,0.15)'; });
+    cell.addEventListener('dragleave', function(){ cell.style.background=''; });
+    cell.addEventListener('drop', function(e){
+      e.preventDefault(); cell.style.background='';
+      if (!dragId) return;
+      var newDate = cell.dataset.dropdate;
+      var newTime = cell.dataset.droptime;
+      var cita = app.citas.find(function(c){ return String(c.ID)===String(dragId); });
+      if (!cita || (cita.Fecha===newDate && cita.Hora===newTime)) return;
+      if (!confirm('¿Mover cita de '+cita.Nombre+' al '+fmtDate(newDate)+' a las '+newTime+'?')) return;
+      apiPatch('Citas','ID',cita.ID,{Fecha: newDate, Hora: newTime}).then(function(){
+        var tel = (cita['Teléfono']||cita.Telefono||'').replace(/\D/g,'');
+        var msg = encodeURIComponent('Hola '+cita.Nombre+'! Te informo de que tu cita ha sido cambiada al '+fmtDate(newDate)+' a las '+newTime+'. Si tienes alguna duda no dudes en escribirme. ¡Hasta pronto!');
+        loadData();
+        if (tel) window.open('https://wa.me/'+tel+'?text='+msg, '_blank');
+      });
     });
   });
   document.querySelectorAll('.aa-cancel-btn').forEach(function(btn){
@@ -1200,7 +1260,8 @@ function bindEvents() {
   });
   document.querySelectorAll('.btn-done[data-doneid]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      apiPatch('Citas','ID',btn.dataset.doneid,{Estado:'completada'}).then(function(){ loadData(); });
+      var cita = app.citas.find(function(c){ return String(c.ID)===String(btn.dataset.doneid); });
+      if (cita) completarCita(cita); else apiPatch('Citas','ID',btn.dataset.doneid,{Estado:'completada'}).then(function(){ loadData(); });
     });
   });
   var citaFilterInput = document.getElementById('citaFilterInput');
@@ -1210,16 +1271,42 @@ function bindEvents() {
 
   // Modal
   var mc = document.getElementById('modalClose');
-  if (mc) mc.addEventListener('click', function(){ app.modal=null; render(); });
+  if (mc) mc.addEventListener('click', function(){ app.modal=null; app.rescheduling=false; render(); });
   var mb = document.getElementById('modalBg');
-  if (mb) mb.addEventListener('click', function(e){ if(e.target===mb){app.modal=null;render();} });
+  if (mb) mb.addEventListener('click', function(e){ if(e.target===mb){app.modal=null;app.rescheduling=false;render();} });
   var mcb = document.getElementById('modalCancelBtn');
   if (mcb) mcb.addEventListener('click', function(){
     if (confirm('¿Cancelar esta cita?')){ cancelCita(app.modal.ID); app.modal=null; }
   });
   var mdb = document.getElementById('modalDoneBtn');
   if (mdb) mdb.addEventListener('click', function(){
-    apiPatch('Citas','ID',app.modal.ID,{Estado:'completada'}).then(function(){ app.modal=null; loadData(); });
+    var cita = app.modal;
+    completarCita(cita, function(){ app.modal=null; loadData(); });
+  });
+
+  var mrb = document.getElementById('modalRescheduleBtn');
+  if (mrb) mrb.addEventListener('click', function(){ app.rescheduling=true; render(); });
+
+  var rcb = document.getElementById('rescheduleCancelBtn');
+  if (rcb) rcb.addEventListener('click', function(){ app.rescheduling=false; render(); });
+
+  var rcfb = document.getElementById('rescheduleConfirmBtn');
+  if (rcfb) rcfb.addEventListener('click', function(){
+    var newDate = document.getElementById('rescheduleDate').value;
+    var newTime = document.getElementById('rescheduleTime').value;
+    if (!newDate || !newTime) { alert('Elige fecha y hora'); return; }
+    var cita = app.modal;
+    rcfb.textContent = 'Guardando...'; rcfb.disabled = true;
+    apiPatch('Citas','ID',cita.ID,{Fecha: newDate, Hora: newTime}).then(function(){
+      // Abrir WhatsApp con aviso automático
+      var tel = (cita['Teléfono']||cita.Telefono||'').replace(/\D/g,'');
+      var fechaFmt = fmtDate(newDate);
+      var msg = encodeURIComponent('Hola '+cita.Nombre+'! Te informo de que tu cita ha sido cambiada al '+fechaFmt+' a las '+newTime+'. Si tienes alguna duda no dudes en escribirme. ¡Hasta pronto!');
+      app.rescheduling = false;
+      app.modal = null;
+      loadData();
+      if (tel) window.open('https://wa.me/'+tel+'?text='+msg, '_blank');
+    });
   });
 
   // Bloquear calendar

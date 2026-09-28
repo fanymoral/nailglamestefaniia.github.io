@@ -675,7 +675,7 @@ function bind() {
     wlSubmitBtn.textContent = 'Guardando...'; wlSubmitBtn.disabled = true;
     fetch(SHEETDB_URL+'?sheet=ListaEspera', {
       method:'POST',
-      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({data:{
         Nombre: n,
         'Teléfono': p,
@@ -805,7 +805,7 @@ function confirmBooking() {
 
   fetch(SHEETDB_URL+'?sheet=Citas', {
     method:'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'Content-Type': 'text/plain'},
     body: JSON.stringify({data: citaData})
   })
   .then(function(r){

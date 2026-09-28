@@ -278,7 +278,12 @@ var app = {
 function switchTab(t){ app.tab=t; render(); }
 function pad(n){ return String(n).padStart(2,'0'); }
 function fmtDate(ds) {
-  var d=new Date(ds+'T12:00:00');
+  if (!ds || typeof ds !== 'string') return ds || '';
+  // Solo aceptar formato YYYY-MM-DD (con o sin sufijo _AM/_PM)
+  var clean = ds.replace(/_AM$|_PM$/,'');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) return ds; // devolver tal cual si formato raro
+  var d=new Date(clean+'T12:00:00');
+  if (isNaN(d.getTime())) return ds;
   return DAY_NAMES[d.getDay()]+' '+d.getDate()+' '+MONTH_SHORT[d.getMonth()];
 }
 function getWeekDates(offset) {
@@ -1013,7 +1018,13 @@ function renderBloquear() {
     if (p.pm) unblockKeys.push(ds+'_PM');
     tagsHtml += '<div class="blocked-tag">'+fmtDate(ds)+' ('+label+')<button data-unblock-multi="'+unblockKeys.join(',')+'">×</button></div>';
   });
-  var blockedTagsHtml = tagsHtml ? '<div class="blocked-list">'+tagsHtml+'</div>' : '<div style="color:var(--warm-gray);font-size:0.8rem;margin-top:0.5rem">No hay días bloqueados</div>';
+  // Detectar fechas corruptas (no formato YYYY-MM-DD)
+  var corruptas = allBlocked.filter(function(b){
+    var clean = b.replace(/_AM$|_PM$/,'');
+    return !/^\d{4}-\d{2}-\d{2}$/.test(clean);
+  });
+  var limpiarBtn = corruptas.length ? '<button id="limpiarCorruptasBtn" style="margin-top:0.8rem;background:var(--red);color:white;border:none;border-radius:8px;padding:0.5rem 1rem;font-size:0.8rem;cursor:pointer;">🗑️ Eliminar '+corruptas.length+' fecha(s) incorrecta(s)</button>' : '';
+  var blockedTagsHtml = (tagsHtml ? '<div class="blocked-list">'+tagsHtml+'</div>' : '<div style="color:var(--warm-gray);font-size:0.8rem;margin-top:0.5rem">No hay días bloqueados</div>') + limpiarBtn;
 
   return '<div class="block-section">'
     +'<div class="block-title">Bloquear días</div>'
@@ -1416,6 +1427,28 @@ function bindEvents() {
   });
   var csBtn = document.getElementById('clearSelBtn');
   if (csBtn) csBtn.addEventListener('click', function(){ app.blockSelected=[]; render(); });
+
+  // Limpiar fechas corruptas
+  var lcBtn = document.getElementById('limpiarCorruptasBtn');
+  if (lcBtn) lcBtn.addEventListener('click', function(){
+    if (!confirm('¿Eliminar todas las fechas incorrectas de la lista de bloqueados?')) return;
+    lcBtn.textContent = 'Eliminando...'; lcBtn.disabled = true;
+    var corruptas = app.blockedDays.filter(function(b){
+      var clean = b.replace(/_AM$|_PM$/,'');
+      return !/^\d{4}-\d{2}-\d{2}$/.test(clean);
+    });
+    // Borrar todas de golpe usando apiDeleteAll y reescribir solo las válidas
+    var validas = app.blockedDays.filter(function(b){
+      var clean = b.replace(/_AM$|_PM$/,'');
+      return /^\d{4}-\d{2}-\d{2}$/.test(clean);
+    });
+    apiDeleteAll('Bloqueados').catch(function(){}).then(function(){
+      if (!validas.length) { loadData(); return; }
+      var i = 0;
+      function next(){ if(i>=validas.length){loadData();return;} apiPost('Bloqueados',{Fecha:validas[i]}).then(function(){i++;next();}).catch(function(){i++;next();}); }
+      next();
+    });
+  });
   document.querySelectorAll('[data-unblock]').forEach(function(btn){
     btn.addEventListener('click', function(){ unblockDay(btn.dataset.unblock); });
   });

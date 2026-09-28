@@ -138,9 +138,9 @@
   .agenda-hour-label { border-right: 1px solid #999 !important; }
   .agenda-appt { position: absolute; left: 2px; right: 2px; border-radius: 6px; padding: 4px 6px; font-size: 0.68rem; line-height: 1.4; overflow: hidden; cursor: pointer; transition: opacity 0.2s; z-index: 1; }
   .agenda-appt:hover { opacity: 0.85; }
-  .agenda-appt .aa-time { font-weight: 600; font-size: 0.6rem; }
-  .agenda-appt .aa-name { font-weight: 500; }
-  .agenda-appt .aa-service { opacity: 0.85; }
+  .agenda-appt .aa-time { font-weight: 600; font-size: 0.6rem; pointer-events: none; }
+  .agenda-appt .aa-name { font-weight: 500; pointer-events: none; }
+  .agenda-appt .aa-service { opacity: 0.85; pointer-events: none; }
   /* Service colors */
   .svc-semi     { background: #F2C4D8; border-left: 3px solid #E8829F; color: #3A1A28; }
   .svc-gel      { background: #C8E6C9; border-left: 3px solid #66BB6A; color: #1B3A1C; }
@@ -508,6 +508,44 @@ function renderEspera() {
     +'</div>';
 }
 
+// ── Global helpers (usados en renderModal, renderLista y renderStats) ──
+function parsePrice(precioStr) {
+  if (!precioStr) return 0;
+  var matches = precioStr.match(/(\d+(?:[.,]\d+)?)/g);
+  if (!matches) return 0;
+  return matches.reduce(function(sum, n){ return sum + parseFloat(n.replace(',','.')); }, 0);
+}
+var BONOS_PRECIOS = {
+  'Bono 3 Semipermanentes': 50,
+  'Bono 3 Refuerzo con Gel': 55,
+  'Bono 3 Pies': 48,
+  'Bono 3 Acrigel': 78,
+  'Bono 3 Refuerzo Gel + Semi Pies': 105,
+  'Bono 3 Semi Manos + Semi Pies': 100
+};
+function calcTotalCita(c) {
+  var notas = c.Notas || c.notas || '';
+  var esBono = notas.indexOf('Bono') >= 0 || notas.indexOf('bono') >= 0;
+  if (!esBono) return { total: parsePrice(c.Precio), label: Math.round(parsePrice(c.Precio))+'€', esBono: false };
+  var tipoBonoMatch = notas.match(/Bono 3 [^.]+/);
+  var tipoBono = tipoBonoMatch ? tipoBonoMatch[0].trim() : '';
+  var tel = (c['Teléfono'] || c.Telefono || '').replace(/\D/g,'');
+  var clienta = (app.clientas || []).find(function(cl){
+    return (cl['Teléfono']||'').replace(/\D/g,'') === tel;
+  });
+  var sesiones = clienta ? parseInt(clienta.BonoSesiones||0)||0 : 3;
+  var bonoPrecio = tipoBono && BONOS_PRECIOS[tipoBono] ? BONOS_PRECIOS[tipoBono] : parsePrice(c.Precio);
+  if (sesiones >= 3) {
+    return { total: bonoPrecio, label: bonoPrecio+'€ (bono completo)', esBono: true, sesion: '1ª sesión' };
+  } else if (sesiones > 0) {
+    var num = sesiones === 2 ? '2ª' : '3ª';
+    return { total: 0, label: '0€ ('+num+' sesión bono)', esBono: true, sesion: num+' sesión' };
+  } else {
+    return { total: bonoPrecio, label: bonoPrecio+'€ (bono)', esBono: true, sesion: '' };
+  }
+}
+// ──────────────────────────────────────────────────────────────────────
+
 function renderStats() {
   var citasActivas = app.citas.filter(function(c){ return c.Estado !== 'cancelada'; });
 
@@ -532,48 +570,6 @@ function renderStats() {
   }).join('');
 
   var citasMes = citasActivas.filter(function(c){ return (c.Fecha||'').substring(0,7) === selMonth; });
-
-  // Revenue calculation - parse prices like "20€ + 8€"
-  function parsePrice(precioStr) {
-    if (!precioStr) return 0;
-    var matches = precioStr.match(/(\d+(?:[.,]\d+)?)/g);
-    if (!matches) return 0;
-    return matches.reduce(function(sum, n){ return sum + parseFloat(n.replace(',','.')); }, 0);
-  }
-
-  // Calcula total real a pagar según sesión de bono
-  var BONOS_PRECIOS = {
-    'Bono 3 Semipermanentes': 50,
-    'Bono 3 Refuerzo con Gel': 55,
-    'Bono 3 Pies': 48,
-    'Bono 3 Acrigel': 78,
-    'Bono 3 Refuerzo Gel + Semi Pies': 105,
-    'Bono 3 Semi Manos + Semi Pies': 100
-  };
-  function calcTotalCita(c) {
-    // Detectar si tiene bono en las notas
-    var notas = c.Notas || c.notas || '';
-    var esBono = notas.indexOf('Bono') >= 0 || notas.indexOf('bono') >= 0;
-    if (!esBono) return { total: parsePrice(c.Precio), label: Math.round(parsePrice(c.Precio))+'€', esBono: false };
-    // Buscar tipo de bono en notas
-    var tipoBonoMatch = notas.match(/Bono 3 [^.]+/);
-    var tipoBono = tipoBonoMatch ? tipoBonoMatch[0].trim() : '';
-    // Buscar ficha clienta por teléfono
-    var tel = (c['Teléfono'] || c.Telefono || '').replace(/\D/g,'');
-    var clienta = (app.clientas || []).find(function(cl){
-      return (cl['Teléfono']||'').replace(/\D/g,'') === tel;
-    });
-    var sesiones = clienta ? parseInt(clienta.BonoSesiones||0)||0 : 3;
-    var bonoPrecio = tipoBono && BONOS_PRECIOS[tipoBono] ? BONOS_PRECIOS[tipoBono] : parsePrice(c.Precio);
-    if (sesiones >= 3) {
-      return { total: bonoPrecio, label: bonoPrecio+'€ (bono completo)', esBono: true, sesion: '1ª sesión' };
-    } else if (sesiones > 0) {
-      var num = sesiones === 2 ? '2ª' : '3ª';
-      return { total: 0, label: '0€ ('+num+' sesión bono)', esBono: true, sesion: num+' sesión' };
-    } else {
-      return { total: bonoPrecio, label: bonoPrecio+'€ (bono)', esBono: true, sesion: '' };
-    }
-  }
 
   var totalIngresos = citasMes.reduce(function(sum, c){ return sum + parsePrice(c.Precio); }, 0);
 
@@ -800,7 +796,7 @@ function renderAgenda() {
         var topPct = ((startM - m30) / 30) * 100;
         var heightPx = Math.max((dur / 30) * CELL_HEIGHT, 26);
         var svcCls = getSvcClass(c.Servicio);
-        var hasBono = (c.Notas||'').indexOf('🎟️') >= 0;
+        var hasBono = (c.Notas||'').indexOf('🎟️') >= 0 || (c.Notas||'').indexOf('Bono') >= 0 || (c.Notas||'').indexOf('bono') >= 0;
         return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;">'
           +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
           +'<div class="aa-name">'+c.Nombre+'</div>'
@@ -1015,7 +1011,7 @@ function renderModal() {
     +'<div class="modal-row"><span class="modal-label">Servicio</span><span>'+c.Servicio+'</span></div>'
     +(function(){ var t=calcTotalCita(c); return '<div class="modal-row"><span class="modal-label">Total a pagar</span><span style="font-weight:600;color:var(--rose)">'+t.label+'</span></div>'+(t.esBono?'<div class="modal-row"><span class="modal-label">Precio servicio</span><span style="color:var(--warm-gray)">'+c.Precio+'</span></div>':''); }())
     +'<div class="modal-row"><span class="modal-label">Teléfono</span><span>'+tel+'</span></div>'
-    +((c.Notas&&c.Notas.indexOf('🎟️')>=0)?'<div class="modal-row"><span class="modal-label">🎟️ Bono</span><span style="color:var(--rose);font-weight:500;">Sesión de bono</span></div>':'')
+    +((c.Notas&&(c.Notas.indexOf('🎟️')>=0||c.Notas.indexOf('Bono')>=0||c.Notas.indexOf('bono')>=0))?'<div class="modal-row"><span class="modal-label">🎟️ Bono</span><span style="color:var(--rose);font-weight:500;">Sesión de bono</span></div>':'')
     +(c.Notas?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+c.Notas+'</span></div>':'')
     +'<div class="modal-row"><span class="modal-label">Estado</span><span>'+(isCancelled?'❌ Cancelada':(isCompleted?'✅ Completada':'✓ Confirmada'))+'</span></div>'
     +'<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.2rem;">'
@@ -1048,10 +1044,11 @@ function bindEvents() {
     window._adminDelegated = true;
     document.addEventListener('click', function(e) {
       if (!app.loggedIn) return;
-      var agendaAppt = e.target.closest('.agenda-appt[data-cid]');
+      var agendaAppt = e.target.closest('[data-cid]');
       if (agendaAppt) {
-        var id = agendaAppt.dataset.cid;
-        var found = app.citas.find(function(c){ return String(c.ID).trim()===String(id).trim(); });
+        var id = String(agendaAppt.dataset.cid).trim();
+        var found = app.citas.find(function(c){ return String(c.ID).trim()===id; });
+        if (!found) found = app.citas.find(function(c){ return String(c.ID).replace(/\s/g,'')===id.replace(/\s/g,''); });
         if (found) { app.modal = found; render(); }
         return;
       }

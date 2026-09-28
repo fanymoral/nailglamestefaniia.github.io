@@ -57,7 +57,7 @@
 </div>
 
 <script>
-var SHEETDB_URL = "https://sheetdb.io/api/v1/glkmtqp6li07j";
+var SHEETDB_URL = "https://script.google.com/macros/s/AKfycbwLSJvabhIA4nIRJobbM1mJkE55yynsb5QFLxzF9JurqHmKaYXHdQXvyciM6_SEC_orFw/exec";
 
 document.getElementById('btnEnviar').addEventListener('click', function(){
   var nombre = document.getElementById('nombre').value.trim();
@@ -67,7 +67,8 @@ document.getElementById('btnEnviar').addEventListener('click', function(){
   btn.textContent = 'Guardando...'; btn.disabled = true;
   fetch(SHEETDB_URL + '?sheet=ListaEsperaApertura', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+    mode: 'no-cors',
+    headers: {'Content-Type': 'text/plain'},
     body: JSON.stringify({data: {
       Nombre: nombre,
       'Teléfono': telefono,

@@ -230,7 +230,7 @@
 
 <script>
 var PASSWORD = "estefania2024";
-var SHEETDB_URL = "https://sheetdb.io/api/v1/glkmtqp6li07j";
+var API_URL = "https://script.google.com/macros/s/AKfycbwLSJvabhIA4nIRJobbM1mJkE55yynsb5QFLxzF9JurqHmKaYXHdQXvyciM6_SEC_orFw/exec";
 
 var SCHEDULE = {
   0: [],
@@ -297,12 +297,12 @@ function fetchWithTimeout(url, options, timeout) {
 function loadData(cb) {
   app.loading=true; app.loadError=false; render();
   var t = 12000;
-  var citasP = fetchWithTimeout(SHEETDB_URL+'?sheet=Citas',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var bloquP = fetchWithTimeout(SHEETDB_URL+'?sheet=Bloqueados',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var clientP = fetchWithTimeout(SHEETDB_URL+'?sheet=Clientas',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var esperaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEspera',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var aperturaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEsperaApertura',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var horariosP = fetchWithTimeout(SHEETDB_URL+'?sheet=Horarios',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var citasP = fetchWithTimeout(API_URL+'?sheet=Citas',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var bloquP = fetchWithTimeout(API_URL+'?sheet=Bloqueados',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var clientP = fetchWithTimeout(API_URL+'?sheet=Clientas',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var esperaP = fetchWithTimeout(API_URL+'?sheet=ListaEspera',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var aperturaP = fetchWithTimeout(API_URL+'?sheet=ListaEsperaApertura',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var horariosP = fetchWithTimeout(API_URL+'?sheet=Horarios',{},t).then(function(r){return r.json();}).catch(function(){return [];});
   Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
     app.citas = results[0] || [];
     app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);
@@ -327,27 +327,45 @@ function loadData(cb) {
   });
 }
 
+function apiPost(sheet, data) {
+  return fetch(API_URL+'?sheet='+encodeURIComponent(sheet), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({data: data})
+  });
+}
+function apiPatch(sheet, col, val, data) {
+  return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=PATCH&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({data: data})
+  });
+}
+function apiDelete(sheet, col, val) {
+  return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=DELETE&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({})
+  });
+}
+function apiDeleteAll(sheet) {
+  return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=DELETE&col=all', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({})
+  });
+}
+
 function cancelCita(id) {
-  fetch(SHEETDB_URL+'/ID/'+id+'?sheet=Citas', {
-    method:'PATCH',
-    headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-    body: JSON.stringify({data: {Estado: 'cancelada'}})
-  }).then(function(){ loadData(); });
+  apiPatch('Citas','ID',id,{Estado:'cancelada'}).then(function(){ loadData(); });
 }
 
 function blockDay(dateStr) {
-  fetch(SHEETDB_URL+'?sheet=Bloqueados', {
-    method:'POST',
-    headers:{'Content-Type':'application/json','Accept':'application/json'},
-    body: JSON.stringify({data:{Fecha:dateStr}})
-  }).then(function(){ loadData(); });
+  apiPost('Bloqueados',{Fecha:dateStr}).then(function(){ loadData(); });
 }
 
 function unblockDay(dateStr) {
-  fetch(SHEETDB_URL+'/Fecha/'+encodeURIComponent(dateStr)+'?sheet=Bloqueados', {
-    method:'DELETE',
-    headers: {'Content-Type': 'application/json', 'Accept': 'application/json'}
-  }).then(function(){ loadData(); });
+  apiDelete('Bloqueados','Fecha',dateStr).then(function(){ loadData(); });
 }
 
 
@@ -708,11 +726,7 @@ function renderAdmin() {
 
 function cancelFromAgenda(id) {
   if (!confirm('¿Cancelar esta cita?')) return;
-  fetch(SHEETDB_URL+'/ID/'+id+'?sheet=Citas', {
-    method:'PATCH',
-    headers:{'Content-Type':'application/json','Accept':'application/json'},
-    body: JSON.stringify({data:{Estado:'cancelada'}})
-  }).then(function(){ loadData(); });
+  apiPatch('Citas','ID',id,{Estado:'cancelada'}).then(function(){ loadData(); });
 }
 
 function getSvcClass(serviceName) {
@@ -1149,14 +1163,10 @@ function bindEvents() {
     saveHBtn.textContent = 'Guardando...'; saveHBtn.disabled = true;
     var configStr = JSON.stringify(app.schedule);
     // First try to get existing row, delete all, then insert fresh
-    fetch(SHEETDB_URL+'/all?sheet=Horarios', { method:'DELETE', headers:{'Accept':'application/json'} })
+    apiDeleteAll('Horarios')
       .catch(function(){})
       .then(function(){
-        return fetch(SHEETDB_URL+'?sheet=Horarios', {
-          method:'POST',
-          headers:{'Content-Type':'application/json','Accept':'application/json'},
-          body: JSON.stringify({data:[{Config: configStr}]})
-        });
+        return apiPost('Horarios',[{Config: configStr}]);
       })
       .then(function(){
         saveHBtn.textContent = '✓ Guardado';
@@ -1196,19 +1206,12 @@ function bindEvents() {
       var idx = parseInt(btn.dataset.esperaidx);
       var e = app.listaEspera[idx];
       if (!e) return;
-      fetch(SHEETDB_URL+'/Nombre/'+encodeURIComponent(e.Nombre)+'?sheet=ListaEspera', {
-        method:'DELETE',
-        headers:{'Accept':'application/json'}
-      }).then(function(){ loadData(); });
+      apiDelete('ListaEspera','Nombre',e.Nombre).then(function(){ loadData(); });
     });
   });
   document.querySelectorAll('.btn-done[data-doneid]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      fetch(SHEETDB_URL+'/ID/'+btn.dataset.doneid+'?sheet=Citas', {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json','Accept':'application/json'},
-        body: JSON.stringify({data:{Estado:'completada'}})
-      }).then(function(){ loadData(); });
+      apiPatch('Citas','ID',btn.dataset.doneid,{Estado:'completada'}).then(function(){ loadData(); });
     });
   });
   var citaFilterInput = document.getElementById('citaFilterInput');
@@ -1227,11 +1230,7 @@ function bindEvents() {
   });
   var mdb = document.getElementById('modalDoneBtn');
   if (mdb) mdb.addEventListener('click', function(){
-    fetch(SHEETDB_URL+'/ID/'+app.modal.ID+'?sheet=Citas', {
-      method:'PATCH',
-      headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body: JSON.stringify({data:{Estado:'completada'}})
-    }).then(function(){ app.modal=null; loadData(); });
+    apiPatch('Citas','ID',app.modal.ID,{Estado:'completada'}).then(function(){ app.modal=null; loadData(); });
   });
 
   // Bloquear calendar
@@ -1296,12 +1295,7 @@ function bindEvents() {
         loadData();
         return;
       }
-      fetch(SHEETDB_URL+'?sheet=Bloqueados', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-        body: JSON.stringify({data: {Fecha: keys[i]}})
-      })
-      .then(function(r){ return r.json(); })
+      apiPost('Bloqueados',{Fecha: keys[i]})
       .then(function(){ blockNext(i+1); })
       .catch(function(){ blockNext(i+1); });
     }
@@ -1377,17 +1371,9 @@ function bindEvents() {
     var isNew = app.clientaEditing.isNew;
     var originalNombre = app.clientaEditing._originalNombre;
     if (isNew) {
-      fetch(SHEETDB_URL+'?sheet=Clientas', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/json'},
-        body: JSON.stringify({data: data})
-      }).then(function(){ app.clientaEditing=null; loadData(); });
+      apiPost('Clientas', data).then(function(){ app.clientaEditing=null; loadData(); });
     } else {
-      fetch(SHEETDB_URL+'/Nombre/'+encodeURIComponent(originalNombre)+'?sheet=Clientas', {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json','Accept':'application/json'},
-        body: JSON.stringify({data: data})
-      }).then(function(){ app.clientaEditing=null; loadData(); });
+      apiPatch('Clientas','Nombre',originalNombre, data).then(function(){ app.clientaEditing=null; loadData(); });
     }
   });
 }

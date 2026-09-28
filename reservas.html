@@ -146,7 +146,7 @@
 <script>
 // Script URL removed
 var WHATSAPP = "34672574200";
-var SHEETDB_URL = "https://sheetdb.io/api/v1/glkmtqp6li07j"; // ← Cambia por tu número
+var SHEETDB_URL = "https://script.google.com/macros/s/AKfycbwLSJvabhIA4nIRJobbM1mJkE55yynsb5QFLxzF9JurqHmKaYXHdQXvyciM6_SEC_orFw/exec";
 
 var CONFIG = {
   maxAdvanceDays: 60,
@@ -766,7 +766,7 @@ function confirmBooking() {
   var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
   if (state.brokenNails > 4) totalDur += 15;
   showLoading(true);
-  fetch(SHEETDB_URL, {
+  fetch(SHEETDB_URL+'?sheet=Citas', {
     method:'POST',
     headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
     body: JSON.stringify({data: {

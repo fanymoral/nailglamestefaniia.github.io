@@ -765,28 +765,50 @@ function confirmBooking() {
   var svcPrices=state.services.map(function(s){return s.price;}).join(' + ');
   var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
   if (state.brokenNails > 4) totalDur += 15;
-  showLoading(true);
+
+  // Show loading with message
+  var el = document.getElementById('loadingOverlay');
+  if (!el) {
+    var div = document.createElement('div');
+    div.id = 'loadingOverlay';
+    div.className = 'loading-overlay';
+    div.innerHTML = '<div class="spinner"></div><div style="color:var(--warm-gray);font-size:0.85rem;text-align:center;">Guardando tu cita...<br><span style="font-size:0.75rem;opacity:0.7">Puede tardar unos segundos</span></div>';
+    document.body.appendChild(div);
+  }
+
+  var citaData = {
+    ID: String(Date.now()),
+    Fecha: state.date,
+    Hora: state.time,
+    Servicio: svcNames,
+    Precio: svcPrices,
+    'Duración': totalDur+' min',
+    Nombre: state.name,
+    'Teléfono': state.phone,
+    Notas: (state.hasBono ? 'Bono: '+state.bonoType+'. ' : '') + (state.firstTime ? 'Primera vez. ' : '') + (state.brokenNails>0 ? state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
+    'Reservada el': new Date().toLocaleString('es-ES'),
+    Estado: 'confirmada'
+  };
+
   fetch(SHEETDB_URL+'?sheet=Citas', {
     method:'POST',
-    headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-    body: JSON.stringify({data: {
-      ID: Date.now(),
-      Fecha: state.date,
-      Hora: state.time,
-      Servicio: svcNames,
-      Precio: svcPrices,
-      'Duración': totalDur+' min',
-      Nombre: state.name,
-      'Teléfono': state.phone,
-      Notas: (state.hasBono ? 'Bono: '+state.bonoType+'. ' : '') + (state.firstTime ? 'Primera vez. ' : '') + (state.brokenNails>0 ? state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
-      'Reservada el': new Date().toLocaleString('es-ES'),
-      Estado: 'confirmada'
-    }})
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({data: citaData})
   })
-  .then(function(){
-    showLoading(false); state.step=5; render();
+  .then(function(r){
+    showLoading(false);
+    // Google Apps Script returns 200 even on errors, so we check the response
+    return r.text().then(function(txt){
+      try { var j = JSON.parse(txt); if (j && j.error) throw new Error(j.error); } catch(e2) { /* ok */ }
+      state.step=5; render();
+    });
   })
-  .catch(function(){ showLoading(false); state.step=5; render(); });
+  .catch(function(err){
+    showLoading(false);
+    console.error('Error al guardar cita:', err);
+    var retry = confirm('Hubo un problema al guardar la cita. ¿Quieres intentarlo de nuevo?');
+    if (retry) { confirmBooking(); }
+  });
 }
 
 function renderWelcomeModal() {

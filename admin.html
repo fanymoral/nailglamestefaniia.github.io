@@ -251,6 +251,7 @@ var app = {
   citas: [],
   blockedDays: [],
   loading: false,
+  loadError: false,
   weekOffset: 0,
   modal: null,
   blockMonth: new Date().getMonth(),
@@ -294,13 +295,14 @@ function fetchWithTimeout(url, options, timeout) {
 }
 
 function loadData(cb) {
-  app.loading=true; render();
-  var citasP = fetchWithTimeout(SHEETDB_URL+'?sheet=Citas').then(function(r){return r.json();}).catch(function(){return [];});
-  var bloquP = fetchWithTimeout(SHEETDB_URL+'?sheet=Bloqueados').then(function(r){return r.json();}).catch(function(){return [];});
-  var clientP = fetchWithTimeout(SHEETDB_URL+'?sheet=Clientas').then(function(r){return r.json();}).catch(function(){return [];});
-  var esperaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEspera').then(function(r){return r.json();}).catch(function(){return [];});
-  var aperturaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEsperaApertura').then(function(r){return r.json();}).catch(function(){return [];});
-  var horariosP = fetchWithTimeout(SHEETDB_URL+'?sheet=Horarios').then(function(r){return r.json();}).catch(function(){return [];});
+  app.loading=true; app.loadError=false; render();
+  var t = 12000;
+  var citasP = fetchWithTimeout(SHEETDB_URL+'?sheet=Citas',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var bloquP = fetchWithTimeout(SHEETDB_URL+'?sheet=Bloqueados',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var clientP = fetchWithTimeout(SHEETDB_URL+'?sheet=Clientas',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var esperaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEspera',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var aperturaP = fetchWithTimeout(SHEETDB_URL+'?sheet=ListaEsperaApertura',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var horariosP = fetchWithTimeout(SHEETDB_URL+'?sheet=Horarios',{},t).then(function(r){return r.json();}).catch(function(){return [];});
   Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
     app.citas = results[0] || [];
     app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);
@@ -309,21 +311,20 @@ function loadData(cb) {
     app.listaApertura = results[4] || [];
     var horarios = results[5] || [];
     if (horarios.length > 0 && horarios[0].Config) {
-      try { 
+      try {
         var configStr = horarios[0].Config;
-        // Handle escaped quotes from SheetDB
-        if (typeof configStr === 'string') {
-          configStr = configStr.replace(/\\"/g, '"');
-        }
+        if (typeof configStr === 'string') configStr = configStr.replace(/\\"/g, '"');
         app.schedule = JSON.parse(configStr);
-        // Convert string keys to numbers
         var numSchedule = {};
         Object.keys(app.schedule).forEach(function(k){ numSchedule[parseInt(k)] = app.schedule[k]; });
         app.schedule = numSchedule;
       } catch(e) { console.log('Schedule parse error:', e); }
     }
     app.loading=false; render(); if(cb)cb();
-  }).catch(function(){ app.loading=false; render(); });
+  }).catch(function(e){
+    console.log('loadData error:', e);
+    app.loading=false; app.loadError=true; render();
+  });
 }
 
 function cancelCita(id) {
@@ -629,6 +630,8 @@ function renderAdmin() {
   var inner = '';
   if (app.loading) {
     inner = '<div class="loading"><div class="spinner"></div>Cargando citas...</div>';
+  } else if (app.loadError) {
+    inner = '<div class="loading" style="flex-direction:column;gap:1rem"><div style="font-size:1.5rem">⚠️</div><div>Error al cargar. Comprueba tu conexión.</div><button onclick="loadData()" style="padding:0.7rem 1.5rem;background:var(--espresso);color:var(--cream);border:none;border-radius:10px;cursor:pointer;font-family:DM Sans,sans-serif">Reintentar</button></div>';
   } else if (app.tab==='agenda') {
     inner = renderAgenda();
     } else if (app.tab==='clientas') {

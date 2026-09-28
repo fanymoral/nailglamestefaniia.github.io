@@ -805,6 +805,7 @@ function confirmBooking() {
 
   fetch(SHEETDB_URL+'?sheet=Citas', {
     method:'POST',
+    mode: 'no-cors',
     headers: {'Content-Type': 'text/plain'},
     body: JSON.stringify({data: citaData})
   })

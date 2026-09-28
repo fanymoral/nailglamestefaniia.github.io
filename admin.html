@@ -329,41 +329,32 @@ function loadData(cb) {
 
 function apiPost(sheet, data) {
   return fetch(API_URL+'?sheet='+encodeURIComponent(sheet), {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({data: data})
   });
 }
 function apiPatch(sheet, col, val, data) {
   return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=PATCH&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val), {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({data: data})
   });
 }
 function apiDelete(sheet, col, val) {
   return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=DELETE&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val), {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({})
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})
   });
 }
 function apiDeleteAll(sheet) {
   return fetch(API_URL+'?sheet='+encodeURIComponent(sheet)+'&_method=DELETE&col=all', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({})
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})
   });
 }
-
 function cancelCita(id) {
   apiPatch('Citas','ID',id,{Estado:'cancelada'}).then(function(){ loadData(); });
 }
-
 function blockDay(dateStr) {
   apiPost('Bloqueados',{Fecha:dateStr}).then(function(){ loadData(); });
 }
-
 function unblockDay(dateStr) {
   apiDelete('Bloqueados','Fecha',dateStr).then(function(){ loadData(); });
 }
@@ -1165,9 +1156,7 @@ function bindEvents() {
     // First try to get existing row, delete all, then insert fresh
     apiDeleteAll('Horarios')
       .catch(function(){})
-      .then(function(){
-        return apiPost('Horarios',[{Config: configStr}]);
-      })
+      .then(function(){ return apiPost('Horarios',[{Config: configStr}]); })
       .then(function(){
         saveHBtn.textContent = '✓ Guardado';
         setTimeout(function(){ saveHBtn.textContent='💾 Guardar horarios'; saveHBtn.disabled=false; }, 1500);
@@ -1373,7 +1362,7 @@ function bindEvents() {
     if (isNew) {
       apiPost('Clientas', data).then(function(){ app.clientaEditing=null; loadData(); });
     } else {
-      apiPatch('Clientas','Nombre',originalNombre, data).then(function(){ app.clientaEditing=null; loadData(); });
+      apiPatch('Clientas','Nombre',originalNombre,data).then(function(){ app.clientaEditing=null; loadData(); });
     }
   });
 }

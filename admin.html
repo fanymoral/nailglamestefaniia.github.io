@@ -336,7 +336,7 @@ function fetchJSON(url, intentos) {
 }
 
 function loadData(cb) {
-  app.loading=true; app.loadError=false; render();
+  app.loading=true; app.loadError=false; app.citas=[]; app.blockedDays=[]; render();
   var citasP    = fetchJSON(API_URL+'?sheet=Citas');
   var bloquP    = fetchJSON(API_URL+'?sheet=Bloqueados');
   var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
@@ -678,6 +678,16 @@ function renderStats() {
 }
 
 function render() {
+  if (app.loggedIn && app.loading) {
+    // Pantalla de carga completa — no mostrar panel vacío
+    document.getElementById('root').innerHTML =
+      '<div class="loading-screen">'
+      +'<div class="loading-logo">Nail Glam <span>Estefanía</span></div>'
+      +'<div class="loading-bar-wrap"><div class="loading-bar"></div></div>'
+      +'<div class="loading-text">Cargando citas y datos...</div>'
+      +'</div>';
+    return;
+  }
   document.getElementById('root').innerHTML = app.loggedIn ? renderAdmin() : renderLogin();
   bindEvents();
 }

@@ -307,15 +307,42 @@ function fetchWithTimeout(url, options, timeout) {
   ]);
 }
 
+// Fetch con reintento — Google Script a veces devuelve HTML de error en cold start
+function fetchJSON(url, intentos) {
+  intentos = intentos || 3;
+  return fetchWithTimeout(url, {}, 15000).then(function(r) {
+    return r.text().then(function(txt) {
+      try {
+        var data = JSON.parse(txt);
+        if (data && data.error) return [];
+        return Array.isArray(data) ? data : [];
+      } catch(e) {
+        if (intentos > 1) {
+          return new Promise(function(res) {
+            setTimeout(function() { res(fetchJSON(url, intentos - 1)); }, 2000);
+          });
+        }
+        return [];
+      }
+    });
+  }).catch(function() {
+    if (intentos > 1) {
+      return new Promise(function(res) {
+        setTimeout(function() { res(fetchJSON(url, intentos - 1)); }, 2000);
+      });
+    }
+    return [];
+  });
+}
+
 function loadData(cb) {
   app.loading=true; app.loadError=false; render();
-  var t = 12000;
-  var citasP = fetchWithTimeout(API_URL+'?sheet=Citas',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var bloquP = fetchWithTimeout(API_URL+'?sheet=Bloqueados',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var clientP = fetchWithTimeout(API_URL+'?sheet=Clientas',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var esperaP = fetchWithTimeout(API_URL+'?sheet=ListaEspera',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var aperturaP = fetchWithTimeout(API_URL+'?sheet=ListaEsperaApertura',{},t).then(function(r){return r.json();}).catch(function(){return [];});
-  var horariosP = fetchWithTimeout(API_URL+'?sheet=Horarios',{},t).then(function(r){return r.json();}).catch(function(){return [];});
+  var citasP    = fetchJSON(API_URL+'?sheet=Citas');
+  var bloquP    = fetchJSON(API_URL+'?sheet=Bloqueados');
+  var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
+  var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
+  var aperturaP = fetchJSON(API_URL+'?sheet=ListaEsperaApertura');
+  var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
   Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
     app.citas = results[0] || [];
     app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);

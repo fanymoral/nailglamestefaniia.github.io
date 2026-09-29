@@ -450,20 +450,25 @@ function renderStep2() {
   var today=new Date(); today.setHours(0,0,0,0);
   var maxD=new Date(today); maxD.setDate(maxD.getDate()+CONFIG.maxAdvanceDays);
   var mNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  var dNames=['D','L','M','X','J','V','S'];
-  var firstDay=new Date(state.year,state.month,1).getDay();
+  var dNames=['L','M','X','J','V','S','D'];
+  var firstDayRaw=new Date(state.year,state.month,1).getDay();
+  var firstMon=firstDayRaw===0?6:firstDayRaw-1;
   var daysInM=new Date(state.year,state.month+1,0).getDate();
   var cells='';
-  for (var i=0;i<firstDay;i++) cells+='<div class="cal-day empty"></div>';
+  for (var i=0;i<firstMon;i++) cells+='<div class="cal-day empty"></div>';
   for (var d=1;d<=daysInM;d++) {
     var date=new Date(state.year,state.month,d);
     var ds=state.year+'-'+pad(state.month+1)+'-'+pad(d);
     var blocked=isDayBlocked(ds);
-    var unavail=date<today||date>maxD||!isDayOpen(date.getDay())||blocked;
-    var cls='cal-day'+(unavail?(blocked?' blocked':' past'):' available');
+    var isPast=date<today;
+    var unavail=isPast||date>maxD||!isDayOpen(date.getDay())||blocked;
+    var cls='cal-day';
+    if (blocked) cls+=' blocked';
+    else if (unavail) cls+=' past';
+    else cls+=' available';
     if (date.getTime()===today.getTime()) cls+=' today';
     if (state.date===ds) cls+=' selected';
-    cells+='<div class="'+cls+'"'+(unavail?'':' data-date="'+ds+'"')+'>'+d+'</div>';
+    cells+='<div class="'+cls+'"'+(!unavail?' data-date="'+ds+'"':'')+'>'+d+'</div>';
   }
   var slotsHtml='';
   if (state.date) {

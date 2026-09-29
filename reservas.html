@@ -188,29 +188,24 @@ var state = {
 // Cargar citas y días bloqueados desde Google Sheets
 function loadData(cb) {
   showLoading(true);
-  fetch(SHEETDB_URL+'?sheet=Citas')
-    .then(function(r){ return r.json(); })
-    .then(function(citas) {
-      state.bookedSlots = (citas || []).filter(function(c){ return c.Estado !== 'cancelada'; });
-      return fetch(SHEETDB_URL+'?sheet=Bloqueados');
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(bloqueados) {
-      state.blockedDays = (bloqueados || []).map(function(b){ return b.Fecha || b.fecha || ''; }).filter(Boolean);
-      return fetch(SHEETDB_URL+'?sheet=Horarios');
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(horarios) {
-      if (horarios && horarios.length > 0 && horarios[0].Config) {
-        try {
-          var customSchedule = JSON.parse(horarios[0].Config);
-          CONFIG.schedule = customSchedule;
-        } catch(e) { /* keep default */ }
-      }
-      showLoading(false);
-      if (cb) cb();
-    })
-    .catch(function(){ showLoading(false); if (cb) cb(); });
+  var citasP = fetch(SHEETDB_URL+'?sheet=Citas').then(function(r){ return r.json(); }).catch(function(){ return []; });
+  var bloquP = fetch(SHEETDB_URL+'?sheet=Bloqueados').then(function(r){ return r.json(); }).catch(function(){ return []; });
+  var horariosP = fetch(SHEETDB_URL+'?sheet=Horarios').then(function(r){ return r.json(); }).catch(function(){ return []; });
+  Promise.all([citasP, bloquP, horariosP]).then(function(results) {
+    state.bookedSlots = (results[0] || []).filter(function(c){ return c.Estado !== 'cancelada'; });
+    state.blockedDays = (results[1] || []).map(function(b){ return b.Fecha || b.fecha || ''; }).filter(Boolean);
+    var horarios = results[2] || [];
+    if (horarios.length > 0 && horarios[0].Config) {
+      try {
+        var customSchedule = JSON.parse(horarios[0].Config);
+        var numSchedule = {};
+        Object.keys(customSchedule).forEach(function(k){ numSchedule[parseInt(k)] = customSchedule[k]; });
+        CONFIG.schedule = numSchedule;
+      } catch(e) { /* keep default */ }
+    }
+    showLoading(false);
+    if (cb) cb();
+  }).catch(function(){ showLoading(false); if (cb) cb(); });
 }
 
 function showLoading(show) {

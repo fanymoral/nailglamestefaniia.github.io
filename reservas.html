@@ -185,12 +185,42 @@ var state = {
   showDecoModal: false, showPayModal: false
 };
 
+// Fetch con reintento automático — Google Script a veces da error HTML en cold start
+function fetchJSON(url, intentos) {
+  intentos = intentos || 3;
+  return fetch(url).then(function(r) {
+    return r.text().then(function(txt) {
+      try {
+        var data = JSON.parse(txt);
+        // Si Apps Script devolvió un objeto de error, tratar como vacío
+        if (data && data.error) return [];
+        return Array.isArray(data) ? data : [];
+      } catch(e) {
+        // Respuesta no era JSON (HTML de error de Google) — reintentar
+        if (intentos > 1) {
+          return new Promise(function(res) {
+            setTimeout(function() { res(fetchJSON(url, intentos - 1)); }, 1500);
+          });
+        }
+        return [];
+      }
+    });
+  }).catch(function() {
+    if (intentos > 1) {
+      return new Promise(function(res) {
+        setTimeout(function() { res(fetchJSON(url, intentos - 1)); }, 1500);
+      });
+    }
+    return [];
+  });
+}
+
 // Cargar citas y días bloqueados desde Google Sheets
 function loadData(cb) {
   showLoading(true);
-  var citasP = fetch(SHEETDB_URL+'?sheet=Citas').then(function(r){ return r.json(); }).catch(function(){ return []; });
-  var bloquP = fetch(SHEETDB_URL+'?sheet=Bloqueados').then(function(r){ return r.json(); }).catch(function(){ return []; });
-  var horariosP = fetch(SHEETDB_URL+'?sheet=Horarios').then(function(r){ return r.json(); }).catch(function(){ return []; });
+  var citasP    = fetchJSON(SHEETDB_URL+'?sheet=Citas');
+  var bloquP    = fetchJSON(SHEETDB_URL+'?sheet=Bloqueados');
+  var horariosP = fetchJSON(SHEETDB_URL+'?sheet=Horarios');
   Promise.all([citasP, bloquP, horariosP]).then(function(results) {
     state.bookedSlots = (results[0] || []).filter(function(c){ return c.Estado !== 'cancelada'; });
     state.blockedDays = (results[1] || []).map(function(b){ return b.Fecha || b.fecha || ''; }).filter(Boolean);
@@ -231,6 +261,24 @@ function timeToMins(t) {
   if (!t) return 0;
   var p = t.split(':'); return parseInt(p[0])*60 + parseInt(p[1]||0);
 }
+function getDurFromSheet(b) {
+  // 1. Intentar DurMin (campo sin acento, siempre numérico)
+  var durMin = parseInt(b['DurMin']) || 0;
+  if (durMin > 0) return durMin;
+  // 2. Intentar leer del campo Duración del sheet (puede tener acento)
+  var durStr = b['Duración'] || b['Duracion'] || b['duracion'] || b['duración'] || b['Duration'] || '';
+  var fromSheet = parseInt(durStr) || 0;
+  if (fromSheet > 0) return fromSheet;
+  // 2. Si falla, calcular sumando duraciones de CONFIG.services según nombre del servicio
+  if (b.Servicio) {
+    var fromConfig = CONFIG.services.reduce(function(sum, svc) {
+      return (b.Servicio.indexOf(svc.name) >= 0) ? sum + svc.duration : sum;
+    }, 0);
+    if (fromConfig > 0) return fromConfig;
+  }
+  // 3. Fallback conservador: 60 min
+  return 60;
+}
 function isSlotTaken(dateStr, timeStr, slotDur) {
   slotDur = slotDur || 30;
   var slotStart = timeToMins(timeStr);
@@ -238,8 +286,7 @@ function isSlotTaken(dateStr, timeStr, slotDur) {
   return state.bookedSlots.some(function(b) {
     if (b.Fecha !== dateStr) return false;
     var bStart = timeToMins(b.Hora);
-    var durStr = b['Duración'] || b.Duracion || '60 min';
-    var bDur = parseInt(durStr) || 60;
+    var bDur = getDurFromSheet(b);
     var bEnd = bStart + bDur;
     // overlap: slot starts before booking ends AND slot ends after booking starts
     return slotStart < bEnd && slotEnd > bStart;
@@ -802,6 +849,7 @@ function confirmBooking() {
     Servicio: svcNames,
     Precio: svcPrices,
     'Duración': totalDur+' min',
+    DurMin: totalDur,
     Nombre: state.name,
     'Teléfono': state.phone,
     Notas: (state.hasBono ? 'Bono: '+state.bonoType+'. ' : '') + (state.firstTime ? 'Primera vez. ' : '') + (state.brokenNails>0 ? state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,

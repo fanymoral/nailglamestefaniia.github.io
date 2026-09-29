@@ -259,6 +259,7 @@ var app = {
   blockedDays: [],
   loading: false,
   loadError: false,
+  loadingMsg: '',
   weekOffset: 0,
   modal: null,
   blockMonth: new Date().getMonth(),
@@ -299,6 +300,24 @@ function getWeekDates(offset) {
   return days;
 }
 
+var CACHE_KEY = 'nailglam_admin_cache';
+var _autoRefreshTimer = null;
+
+// Guardar datos en caché local
+function saveCache(data) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ts: Date.now(), data: data})); } catch(e) {}
+}
+// Leer caché local (válido 10 minutos)
+function loadCache() {
+  try {
+    var raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    if (Date.now() - obj.ts > 10*60*1000) return null;
+    return obj.data;
+  } catch(e) { return null; }
+}
+
 function fetchWithTimeout(url, options, timeout) {
   timeout = timeout || 8000;
   return Promise.race([
@@ -335,36 +354,89 @@ function fetchJSON(url, intentos) {
   });
 }
 
+// Precalentar Google Script en segundo plano
+function warmUp() {
+  try { fetch(API_URL+'?sheet=Citas').catch(function(){}); } catch(e) {}
+}
+
+function applyResults(results) {
+  app.citas = results[0] || [];
+  app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);
+  app.clientas = results[2] || [];
+  app.listaEspera = results[3] || [];
+  app.listaApertura = results[4] || [];
+  var horarios = results[5] || [];
+  if (horarios.length > 0 && horarios[0].Config) {
+    try {
+      var configStr = horarios[0].Config;
+      if (typeof configStr === 'string') configStr = configStr.replace(/\\"/g, '"');
+      app.schedule = JSON.parse(configStr);
+      var numSchedule = {};
+      Object.keys(app.schedule).forEach(function(k){ numSchedule[parseInt(k)] = app.schedule[k]; });
+      app.schedule = numSchedule;
+    } catch(e) {}
+  }
+}
+
 function loadData(cb) {
-  app.loading=true; app.loadError=false; app.citas=[]; app.blockedDays=[]; render();
+  app.loading=true; app.loadError=false; render();
+
+  // Mostrar caché inmediatamente si existe, mientras llegan los datos frescos
+  var cached = loadCache();
+  if (cached) {
+    applyResults(cached);
+    app.loading=false;
+    render();
+    app.loading=true; // marcar que sigue actualizando en segundo plano
+  }
+
   var citasP    = fetchJSON(API_URL+'?sheet=Citas');
   var bloquP    = fetchJSON(API_URL+'?sheet=Bloqueados');
   var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
   var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
   var aperturaP = fetchJSON(API_URL+'?sheet=ListaEsperaApertura');
   var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
-  Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
-    app.citas = results[0] || [];
-    app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);
-    app.clientas = results[2] || [];
-    app.listaEspera = results[3] || [];
-    app.listaApertura = results[4] || [];
-    var horarios = results[5] || [];
-    if (horarios.length > 0 && horarios[0].Config) {
-      try {
-        var configStr = horarios[0].Config;
-        if (typeof configStr === 'string') configStr = configStr.replace(/\\"/g, '"');
-        app.schedule = JSON.parse(configStr);
-        var numSchedule = {};
-        Object.keys(app.schedule).forEach(function(k){ numSchedule[parseInt(k)] = app.schedule[k]; });
-        app.schedule = numSchedule;
-      } catch(e) { console.log('Schedule parse error:', e); }
+
+  // Aviso si tarda más de 12 segundos
+  var tardandoTimer = setTimeout(function() {
+    if (app.loading) {
+      app.loadingMsg = 'Esto está tardando más de lo normal, espera un momento...';
+      render();
     }
-    app.loading=false; render(); if(cb)cb();
+  }, 12000);
+
+  Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
+    clearTimeout(tardandoTimer);
+    applyResults(results);
+    saveCache(results); // guardar en caché para la próxima vez
+    app.loading=false; app.loadingMsg=''; render();
+    if(cb) cb();
+    startAutoRefresh(); // iniciar refresco automático cada 3 min
   }).catch(function(e){
-    console.log('loadData error:', e);
-    app.loading=false; app.loadError=true; render();
+    clearTimeout(tardandoTimer);
+    app.loading=false;
+    if (!cached) { app.loadError=true; } // solo error si no había caché
+    render();
   });
+}
+
+// Refresco automático cada 3 minutos en segundo plano (sin spinner)
+function startAutoRefresh() {
+  if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+  _autoRefreshTimer = setInterval(function() {
+    if (!app.loggedIn || app.loading) return;
+    var citasP    = fetchJSON(API_URL+'?sheet=Citas');
+    var bloquP    = fetchJSON(API_URL+'?sheet=Bloqueados');
+    var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
+    var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
+    var aperturaP = fetchJSON(API_URL+'?sheet=ListaEsperaApertura');
+    var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
+    Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
+      applyResults(results);
+      saveCache(results);
+      render();
+    }).catch(function(){});
+  }, 3*60*1000);
 }
 
 // Usamos GET con parámetros en la URL para evitar CORS (GET nunca tiene preflight)
@@ -678,13 +750,13 @@ function renderStats() {
 }
 
 function render() {
-  if (app.loggedIn && app.loading) {
-    // Pantalla de carga completa — no mostrar panel vacío
+  if (app.loggedIn && app.loading && !(app.citas && app.citas.length)) {
+    // Pantalla de carga completa solo si no hay datos que mostrar todavía
     document.getElementById('root').innerHTML =
       '<div class="loading-screen">'
       +'<div class="loading-logo">Nail Glam <span>Estefanía</span></div>'
       +'<div class="loading-bar-wrap"><div class="loading-bar"></div></div>'
-      +'<div class="loading-text">Cargando citas y datos...</div>'
+      +'<div class="loading-text">'+(app.loadingMsg||'Cargando citas y datos...')+'</div>'
       +'</div>';
     return;
   }
@@ -1530,6 +1602,8 @@ function bindEvents() {
 }
 
 render();
+// Precalentar Google Script nada más cargar la página (antes del login)
+setTimeout(warmUp, 500);
 </script>
 </body>
 </html>

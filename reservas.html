@@ -914,6 +914,8 @@ function checkWelcome() {
 
 render();
 checkWelcome();
+// Precalentar Google Script nada más cargar la página
+setTimeout(function(){ try { fetch(SHEETDB_URL+'?sheet=Citas').catch(function(){}); } catch(e){} }, 300);
 </script>
 </body>
 </html>

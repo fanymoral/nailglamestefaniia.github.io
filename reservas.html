@@ -446,9 +446,9 @@ function renderStep1() {
       +'</div>';
   }).join('');
 
-  var hasSemi = state.services.some(function(s){ return s.id==='semi'; });
+  var hasBrokenService = state.services.some(function(s){ return s.id==='semi' || s.id==='gel'; });
   var totalDur = state.services.reduce(function(a,s){return a+s.duration;},0);
-  if (hasSemi && state.brokenNails > 4) totalDur += 15;
+  if (hasBrokenService && state.brokenNails > 4) totalDur += 15;
   var totalPrice = state.services.map(function(s){return s.price;}).join(' + ');
   if (state.brokenNails > 0) totalPrice += ' + '+state.brokenNails+'€ (uñas rotas)';
 
@@ -456,7 +456,7 @@ function renderStep1() {
     ? '<div style="margin-top:1rem;background:var(--light-gray);border-radius:10px;padding:0.8rem 1rem;font-size:0.82rem;">'
       +'<strong>Seleccionados:</strong> '+state.services.map(function(s){return s.name;}).join(', ')
       +(state.brokenNails>0?' + '+state.brokenNails+' uña(s) rota(s) (+'+state.brokenNails+'€)':'')
-      +(hasSemi?'&nbsp;&nbsp;<span style="color:var(--rose);cursor:pointer;text-decoration:underline;" id="editBnLink">✏️ Editar</span>':'')
+      +(hasBrokenService?'&nbsp;&nbsp;<span style="color:var(--rose);cursor:pointer;text-decoration:underline;" id="editBnLink">✏️ Editar</span>':'')
       +'<br><strong>Duración total:</strong> '+totalDur+' min &nbsp;·&nbsp; <strong>Total:</strong> '+totalPrice
       +'</div>'
     : '';
@@ -466,7 +466,8 @@ function renderStep1() {
 
   return '<div class="card"><div class="card-title">Elige tus servicios<small>Puedes seleccionar más de uno</small></div><div class="services-grid">'+btns+'</div>'
     +summaryHtml
-    +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn1"'+(state.services.length?'':' disabled')+'>Continuar →</button></div></div>'
+    +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn1"'+(state.services.length?'':' disabled')+'>Continuar →</button></div>'
+    +'</div>'
     +modalHtml
     +decoModalHtml;
 }
@@ -622,7 +623,8 @@ function renderSuccess() {
     +'<div style="margin-top:0.8rem;">'
     +'<a href="data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART:'+state.date.replace(/-/g,'')+'T'+state.time.replace(':','')+'00%0ASUMMARY:Nail+Glam+Estefania+-+'+encodeURIComponent(svcNames)+'%0AEND:VEVENT%0AEND:VCALENDAR" download="cita-nail-glam.ics" style="display:block;text-align:center;padding:0.7rem;background:var(--light-gray);border-radius:10px;text-decoration:none;color:var(--espresso);font-size:0.82rem;">📅 Guardar en mi calendario</a>'
     +'</div>'
-    +'<button class="btn-secondary" id="btnNew" style="margin-top:0.8rem">Hacer otra reserva</button></div>';
+    +'<button class="btn-secondary" id="btnNew" style="margin-top:0.8rem">Hacer otra reserva</button>'
+    +'</div>';
 }
 
 function bind() {
@@ -651,8 +653,8 @@ function bind() {
           }
         }
         state.services.push(svc);
-        // Show broken nails modal when semi is selected
-        if (svc.id === 'semi') {
+        // Show broken nails modal when semi or gel is selected
+        if (svc.id === 'semi' || svc.id === 'gel') {
           state.showBrokenModal = true;
         }
         // Show deco advice modal when decoration is selected
@@ -895,6 +897,7 @@ function renderWelcomeModal() {
     +'</div>'
     +'<button class="btn-primary" onclick="document.getElementById(\'welcomeModalBg\').remove();">Empezar a reservar</button>'
     +'<a href="https://instagram.com/nailglam.estefania" target="_blank" class="ig-link" style="margin-top:0.8rem;">📷 Sígueme en Instagram</a>'
+    +'<p style="margin-top:0.8rem;font-size:0.88rem;color:var(--warm-gray);text-align:center;">¿Tienes una cita y necesitas cancelarla? <a href="cancelar.html" style="color:var(--rose);text-decoration:none;font-weight:500;">Cancela aquí</a></p>'
     +'</div></div></div>';
 }
 

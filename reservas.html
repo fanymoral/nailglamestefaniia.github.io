@@ -517,7 +517,25 @@ function renderStep2() {
   if (state.date) {
     var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0); var slots=getSlots(state.date,totalDur);
     if (!slots.length) {
-      slotsHtml='<div class="no-slots">No hay huecos disponibles este día.</div>';
+      var wlForm = state.showWaitlist
+        ? '<div style="margin-top:1rem;background:var(--light-gray);border-radius:12px;padding:1.2rem;">'
+          +'<div style="font-family:Cormorant Garamond,serif;font-size:1.1rem;margin-bottom:0.8rem;">Apuntarme a lista de espera</div>'
+          +'<label class="form-label">Tu nombre</label>'
+          +'<input class="form-input" id="wlName" placeholder="Laura García" value="'+(state.waitlistName||'')+'" style="margin-bottom:0.8rem;">'
+          +'<label class="form-label">Tu teléfono (WhatsApp)</label>'
+          +'<input class="form-input" id="wlPhone" type="tel" placeholder="612 345 678" value="'+(state.waitlistPhone||'')+'" style="margin-bottom:0.8rem;">'
+          +'<label class="form-label">¿Qué días te vienen bien?</label>'
+          +'<input class="form-input" id="wlDias" placeholder="Ej: lunes y martes por la tarde" value="'+(state.waitlistDias||'')+'" style="margin-bottom:0.8rem;">'
+          +'<label class="form-label">¿A qué horas prefieres?</label>'
+          +'<input class="form-input" id="wlHoras" placeholder="Ej: a partir de las 17:00" value="'+(state.waitlistHoras||'')+'" style="margin-bottom:1rem;">'
+          +'<div style="display:flex;gap:0.6rem;">'
+          +'<button class="btn-primary" id="wlSubmitBtn" style="flex:1;">Apuntarme</button>'
+          +'<button class="btn-secondary" id="wlCancelBtn" style="width:auto;padding:0 1rem;">Cancelar</button>'
+          +'</div></div>'
+        : '<div style="margin-top:1rem;text-align:center;">'
+          +'<button class="btn-secondary" id="waitlistBtn" style="width:100%;">📋 Apuntarme a lista de espera</button>'
+          +'</div>';
+      slotsHtml='<div class="no-slots">No hay huecos disponibles este día.</div>'+wlForm;
     } else {
       var sBtns=slots.map(function(s){
         if (s.taken) return '<button class="slot-btn taken" disabled>'+s.time+'<br><span style="font-size:0.65rem">Ocupado</span></button>';
@@ -718,21 +736,32 @@ function bind() {
   if (wlSubmitBtn) wlSubmitBtn.addEventListener('click', function(){
     var n = document.getElementById('wlName').value.trim();
     var p = document.getElementById('wlPhone').value.trim();
+    var dias = document.getElementById('wlDias').value.trim();
+    var horas = document.getElementById('wlHoras').value.trim();
     if (!n||!p){ alert('Por favor rellena tu nombre y teléfono.'); return; }
     state.waitlistName = n; state.waitlistPhone = p;
+    state.waitlistDias = dias; state.waitlistHoras = horas;
     var svcNames = state.services.map(function(s){return s.name;}).join(' + ') || 'Sin especificar';
     wlSubmitBtn.textContent = 'Guardando...'; wlSubmitBtn.disabled = true;
-    var wlData = [{Nombre:n,'Teléfono':p,Fecha:state.date,Servicio:svcNames,'Añadida el':new Date().toLocaleString('es-ES')}];
+    var wlData = [{
+      Nombre: n,
+      'Teléfono': p,
+      Fecha: state.date,
+      Servicio: svcNames,
+      'Días preferidos': dias,
+      'Horas preferidas': horas,
+      'Añadida el': new Date().toLocaleString('es-ES')
+    }];
     var wlEncoded = btoa(unescape(encodeURIComponent(JSON.stringify(wlData))));
     fetch(SHEETDB_URL+'?_action=insert&sheet=ListaEspera&_data='+encodeURIComponent(wlEncoded))
     .then(function(){
       state.showWaitlist = false;
       state.waitlistName = ''; state.waitlistPhone = '';
-      // Show success message
-      alert('✅ ¡Apuntada! Te avisaremos por WhatsApp si se libera un hueco el '+state.date+' 😊');
+      state.waitlistDias = ''; state.waitlistHoras = '';
+      alert('✅ ¡Apuntada! Te avisaremos por WhatsApp en cuanto se libere un hueco 😊');
       render();
     }).catch(function(){
-      wlSubmitBtn.textContent = '✓ Apuntarme a lista de espera';
+      wlSubmitBtn.textContent = 'Apuntarme';
       wlSubmitBtn.disabled = false;
       alert('Error al guardar. Inténtalo de nuevo.');
     });

@@ -272,7 +272,6 @@ var app = {
   statsMonth: null,
   citaFilter: '',
   listaEspera: [],
-  listaApertura: [],
   rescheduling: false
 };
 
@@ -364,8 +363,7 @@ function applyResults(results) {
   app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);
   app.clientas = results[2] || [];
   app.listaEspera = results[3] || [];
-  app.listaApertura = results[4] || [];
-  var horarios = results[5] || [];
+  var horarios = results[4] || [];
   if (horarios.length > 0 && horarios[0].Config) {
     try {
       var configStr = horarios[0].Config;
@@ -394,7 +392,6 @@ function loadData(cb) {
   var bloquP    = fetchJSON(API_URL+'?sheet=Bloqueados');
   var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
   var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
-  var aperturaP = fetchJSON(API_URL+'?sheet=ListaEsperaApertura');
   var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
 
   // Aviso si tarda más de 12 segundos
@@ -405,7 +402,7 @@ function loadData(cb) {
     }
   }, 12000);
 
-  Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
+  Promise.all([citasP, bloquP, clientP, esperaP, horariosP]).then(function(results){
     clearTimeout(tardandoTimer);
     applyResults(results);
     saveCache(results); // guardar en caché para la próxima vez
@@ -429,9 +426,8 @@ function startAutoRefresh() {
     var bloquP    = fetchJSON(API_URL+'?sheet=Bloqueados');
     var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
     var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
-    var aperturaP = fetchJSON(API_URL+'?sheet=ListaEsperaApertura');
     var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
-    Promise.all([citasP, bloquP, clientP, esperaP, aperturaP, horariosP]).then(function(results){
+    Promise.all([citasP, bloquP, clientP, esperaP, horariosP]).then(function(results){
       applyResults(results);
       saveCache(results);
       render();
@@ -611,27 +607,77 @@ function renderHorarios() {
 
 
 
-function renderApertura() {
-  var lista = app.listaApertura.slice();
-  if (!lista.length) {
-    return '<div class="block-section"><div class="block-title">Lista apertura octubre 🌸</div><div class="no-citas">Nadie se ha apuntado todavía. Comparte el enlace: <strong>fanymoral.github.io/nailglamestefaniia.github.io/espera.html</strong></div></div>';
+function renderBonos() {
+  var nowD = new Date();
+  var nowMins = nowD.getHours()*60 + nowD.getMinutes();
+  var todayISO = nowD.getFullYear()+'-'+pad(nowD.getMonth()+1)+'-'+pad(nowD.getDate());
+
+  // Clientas con bono (activo o agotado)
+  var conBono = app.clientas.filter(function(c){ return c.Bono; })
+    .sort(function(a,b){ return (a.Nombre||'').localeCompare(b.Nombre||''); });
+
+  if (!conBono.length) {
+    return '<div class="block-section"><div class="block-title">🎟️ Bonos activos</div><div class="no-citas">No hay clientas con bono activo en este momento.</div></div>';
   }
-  var items = lista.map(function(e, idx){
-    var tel = (e['Teléfono']||'').replace(/[^0-9]/g,'');
-    var msg = encodeURIComponent('Hola '+e.Nombre+'! 💅 Soy Estefania de Nail Glam. Ya estoy de vuelta la ultima semana de octubre y puedes reservar tu cita aqui: https://fanymoral.github.io/nailglamestefaniia.github.io/reservas.html Segun la demanda ire abriendo mas horarios, asi que si no encuentras hueco estate atenta. Te espero con muchas ganas! 🌸');
-    return '<div class="cita-card">'
-      +'<div class="cita-info">'
-      +'<div class="cita-nombre">'+e.Nombre+'</div>'
-      +'<div class="cita-tel">📱 '+e['Teléfono']+'</div>'
-      +'<div class="cita-tel" style="font-size:0.7rem;color:#CCC">Se apuntó: '+(e.Fecha||'')+' a las '+(e.Hora||'')+'</div>'
+
+  var items = conBono.map(function(c){
+    var total = 3;
+    var restantes = parseInt(c.BonoSesiones||0);
+    var usadas = total - restantes;
+
+    // ¿Tiene una cita de bono hoy que ya ha terminado? → círculo extra en verde hoy
+    var citaHoyTerminada = app.citas.some(function(cita){
+      if (cita.Estado === 'cancelada') return false;
+      var mismoNombre = (cita.Nombre||'').toLowerCase() === (c.Nombre||'').toLowerCase();
+      var esBono = (cita.Notas||'').indexOf('Bono') >= 0 || (cita.Notas||'').indexOf('bono') >= 0 || (cita.Notas||'').indexOf('🎟️') >= 0;
+      if (!mismoNombre || !esBono) return false;
+      if (cita.Estado === 'completada') return true;
+      // Hoy y ya terminó
+      if (cita.Fecha !== todayISO) return false;
+      var durMin = parseInt(cita.DurMin) || parseInt(cita['Duración']) || 60;
+      var endM = timeToMins(cita.Hora) + durMin;
+      return nowMins >= endM;
+    });
+
+    // Si hay cita terminada hoy, mostrar un círculo extra verde (aún no descontado del servidor)
+    var verdesEfectivas = citaHoyTerminada ? usadas + 1 : usadas;
+    if (verdesEfectivas > total) verdesEfectivas = total;
+
+    var circulos = '';
+    for (var i = 0; i < total; i++) {
+      if (i < verdesEfectivas) {
+        var esNueva = citaHoyTerminada && i === verdesEfectivas - 1;
+        circulos += '<span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#4CAF50;margin-right:6px;box-shadow:0 1px 4px rgba(76,175,80,0.4);'+(esNueva?'outline:2px solid #81C784;outline-offset:2px;':'')+'" title="'+(esNueva?'Sesión de hoy':'Sesión usada')+'"></span>';
+      } else {
+        circulos += '<span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--light-gray);border:2px solid var(--blush);margin-right:6px;" title="Sesión pendiente"></span>';
+      }
+    }
+
+    var agotado = restantes === 0 && !citaHoyTerminada;
+    var pendientes = total - verdesEfectivas;
+    var tel = (c['Teléfono']||'').replace(/\D/g,'');
+    return '<div class="cita-card" style="display:block;'+(agotado?'opacity:0.7;':'')+'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">'
+      +'<div>'
+      +'<div class="cita-nombre">'+c.Nombre+(agotado?' <span style="font-size:0.7rem;color:var(--warm-gray);font-weight:400;">· Bono agotado</span>':'')+'</div>'
+      +'<div class="cita-tel" style="margin-top:0.15rem;">🎟️ '+c.Bono+'</div>'
+      +(tel?'<div class="cita-tel">📱 '+c['Teléfono']+'</div>':'')
       +'</div>'
-      +'<div class="cita-actions">'
-      +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa">Avisar</a>'
-      +'<button class="btn-cancel" data-aperturaidx="'+idx+'">Quitar</button>'
-      +'</div></div>';
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">'
+      +(tel?'<a href="https://wa.me/'+tel+'" target="_blank" class="btn-wa" style="font-size:0.75rem;">WhatsApp</a>':'')
+      +(agotado?'<button class="btn-primary" data-renovar="'+c.Nombre+'" style="font-size:0.75rem;padding:0.4rem 0.8rem;background:var(--rose);">🔄 Renovar bono</button>':'')
+      +'</div>'
+      +'</div>'
+      +'<div style="margin-top:0.9rem;display:flex;align-items:center;gap:0.3rem;">'
+      +circulos
+      +'<span style="font-size:0.78rem;color:var(--warm-gray);margin-left:4px;">'+verdesEfectivas+' usada'+(verdesEfectivas!==1?'s':'')+' · '+pendientes+' pendiente'+(pendientes!==1?'s':'')+'</span>'
+      +(citaHoyTerminada?'<span style="font-size:0.72rem;color:#4CAF50;margin-left:6px;font-weight:500;">· Hoy ✓</span>':'')
+      +'</div>'
+      +'</div>';
   }).join('');
+
   return '<div class="block-section">'
-    +'<div class="block-title">Lista apertura octubre 🌸<br><small style="font-family:DM Sans,sans-serif;font-size:0.78rem;color:var(--warm-gray);font-weight:300">'+lista.length+' persona(s) esperando. Enlace: <strong>fanymoral.github.io/nailglamestefaniia.github.io/espera.html</strong></small></div>'
+    +'<div class="block-title">🎟️ Bonos activos<br><small style="font-family:DM Sans,sans-serif;font-size:0.78rem;color:var(--warm-gray);font-weight:300">'+conBono.length+' clienta'+(conBono.length!==1?'s':'')+' con bono en curso</small></div>'
     +'<div class="citas-list" style="margin-top:1rem;">'+items+'</div>'
     +'</div>';
 }
@@ -650,6 +696,8 @@ function renderEspera() {
       +'<div class="cita-nombre">'+e.Nombre+'</div>'
       +'<div class="cita-servicio">'+e.Servicio+'</div>'
       +'<div class="cita-tel">📱 '+e['Teléfono']+'</div>'
+      +(e['Días preferidos']?'<div class="cita-tel" style="color:var(--rose);">📅 '+e['Días preferidos']+'</div>':'')
+      +(e['Horas preferidas']?'<div class="cita-tel" style="color:var(--rose);">🕐 '+e['Horas preferidas']+'</div>':'')
       +'<div class="cita-tel" style="font-size:0.7rem;color:#CCC">Añadida: '+(e['Añadida el']||'')+'</div>'
       +'</div>'
       +'<div class="cita-actions">'
@@ -807,8 +855,8 @@ function renderAdmin() {
     inner = renderStats();
   } else if (app.tab==='espera') {
     inner = renderEspera();
-  } else if (app.tab==='apertura') {
-    inner = renderApertura();
+  } else if (app.tab==='bonos') {
+    inner = renderBonos();
   } else {
     inner = renderBloquear();
   }
@@ -864,7 +912,7 @@ function renderAdmin() {
     +'<button class="tab'+(app.tab==='horarios'?' active':'')+'" data-tab="horarios">🕐 Horarios</button>'
     +'<button class="tab'+(app.tab==='stats'?' active':'')+'" data-tab="stats">📊 Estadísticas</button>'
     +'<button class="tab'+(app.tab==='espera'?' active':'')+'" data-tab="espera">⏳ Lista de espera</button>'
-    +'<button class="tab'+(app.tab==='apertura'?' active':'')+'" data-tab="apertura">🌸 Lista apertura</button>'
+    +'<button class="tab'+(app.tab==='bonos'?' active':'')+'" data-tab="bonos">🎟️ Bonos</button>'
     +'</div>'
     +inner
     +'</div>'
@@ -954,15 +1002,26 @@ function renderAgenda() {
         return cMins >= m30 && cMins < m30+30;
       });
 
+      var nowD = new Date();
+      var nowMins = nowD.getHours()*60 + nowD.getMinutes();
+      var todayISO = nowD.getFullYear()+'-'+pad(nowD.getMonth()+1)+'-'+pad(nowD.getDate());
+
       var appts = slotCitas.map(function(c){
         var startM = timeToMins(c.Hora);
-        var durStr = c['Duración'] || c.Duracion || c.Duraci_n || '60 min';
-        var dur = parseInt(durStr) || 60;
+        var durMin = parseInt(c.DurMin) || 0;
+        if (!durMin) {
+          var durStr = c['Duración'] || c.Duracion || c.Duraci_n || '60 min';
+          durMin = parseInt(durStr) || 60;
+        }
+        var endM = startM + durMin;
         var topPct = ((startM - m30) / 30) * 100;
-        var heightPx = Math.max((dur / 30) * CELL_HEIGHT, 26);
+        var heightPx = Math.max((durMin / 30) * CELL_HEIGHT, 26);
         var svcCls = getSvcClass(c.Servicio);
         var hasBono = (c.Notas||'').indexOf('🎟️') >= 0 || (c.Notas||'').indexOf('Bono') >= 0 || (c.Notas||'').indexOf('bono') >= 0;
-        return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" draggable="true" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;">'
+        // Verde automático si es hoy y la cita ya ha terminado
+        var terminada = c.Estado === 'completada' || (c.Fecha === todayISO && nowMins >= endM);
+        var extraStyle = terminada ? 'background:#4CAF50!important;border-color:#388E3C!important;opacity:0.92;' : '';
+        return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" draggable="true" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;'+extraStyle+'">'
           +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
           +'<div class="aa-name">'+c.Nombre+'</div>'
           +'<div class="aa-service">'+c.Servicio+'</div>'
@@ -1388,6 +1447,20 @@ function bindEvents() {
       if (confirm('¿Seguro que quieres cancelar esta cita?')) {
         cancelCita(btn.dataset.cancelid);
       }
+    });
+  });
+  document.querySelectorAll('[data-renovar]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var nombre = btn.dataset.renovar;
+      if (!confirm('¿Renovar el bono de '+nombre+'? Se reiniciará a 3 sesiones.')) return;
+      // Actualizar localmente
+      app.clientas = app.clientas.map(function(c){
+        return (c.Nombre||'').toLowerCase() === nombre.toLowerCase()
+          ? Object.assign({}, c, {BonoSesiones: '3'})
+          : c;
+      });
+      render();
+      apiPatch('Clientas','Nombre',nombre,{BonoSesiones:'3'}).catch(function(){ loadData(); });
     });
   });
   document.querySelectorAll('[data-esperaidx]').forEach(function(btn){

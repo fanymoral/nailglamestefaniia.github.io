@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cancelar cita — Nail Glam Estefania</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💅</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FFF8FB; --blush: #F2C4D8; --rose: #E8829F;
+    --dark-rose: #C45C7A; --espresso: #3A1A28;
+    --warm-gray: #A8848E; --light-gray: #F7EBF0; --gold: #D4A853;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--espresso); min-height:100vh; display:flex; flex-direction:column; }
+  header { background:var(--espresso); color:var(--cream); text-align:center; padding:2rem 1rem 1.5rem; }
+  .salon-name { font-family:'Cormorant Garamond',serif; font-size:clamp(1.6rem,5vw,2.4rem); font-weight:300; letter-spacing:0.1em; }
+  .salon-name span { font-style:italic; color:var(--blush); }
+  .header-sub { font-size:0.72rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold); margin-top:0.3rem; }
+  main { flex:1; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; }
+  .card { background:#fff; border-radius:20px; padding:2rem; max-width:420px; width:100%; box-shadow:0 4px 30px rgba(42,26,20,0.08); }
+  .card-title { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:400; margin-bottom:0.4rem; }
+  .card-sub { font-size:0.82rem; color:var(--warm-gray); margin-bottom:1.5rem; line-height:1.5; }
+  .form-label { display:block; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--warm-gray); margin-bottom:0.4rem; }
+  .form-input { width:100%; border:1.5px solid var(--light-gray); border-radius:10px; padding:0.75rem 1rem; font-family:'DM Sans',sans-serif; font-size:0.9rem; color:var(--espresso); background:var(--cream); outline:none; transition:border-color 0.2s; margin-bottom:1.2rem; }
+  .form-input:focus { border-color:var(--rose); }
+  .btn-primary { width:100%; padding:1rem; background:var(--espresso); color:var(--cream); border:none; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:0.9rem; cursor:pointer; transition:background 0.2s; font-weight:500; }
+  .btn-primary:hover { background:var(--dark-rose); }
+  .btn-primary:disabled { background:#CCC; cursor:not-allowed; }
+  .cita-card { border:1.5px solid var(--light-gray); border-radius:12px; padding:1rem 1.2rem; margin-bottom:0.8rem; }
+  .cita-fecha { font-family:'Cormorant Garamond',serif; font-size:1.1rem; margin-bottom:0.2rem; }
+  .cita-detalle { font-size:0.82rem; color:var(--warm-gray); }
+  .btn-cancel-cita { margin-top:0.8rem; width:100%; padding:0.7rem; background:none; border:1.5px solid var(--rose); color:var(--rose); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
+  .btn-cancel-cita:hover { background:var(--rose); color:#fff; }
+  .msg { padding:1rem; border-radius:10px; font-size:0.85rem; margin-bottom:1rem; line-height:1.5; }
+  .msg-ok { background:#f0faf4; border:1px solid #a8d8b9; color:#2d6a4a; }
+  .msg-error { background:#fff0f0; border:1px solid #f0b8b8; color:#a03030; }
+  .msg-info { background:var(--light-gray); color:var(--warm-gray); }
+  .spinner-wrap { text-align:center; padding:1.5rem; color:var(--warm-gray); font-size:0.85rem; }
+  .spinner { width:32px; height:32px; border:3px solid var(--light-gray); border-top-color:var(--rose); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 0.8rem; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .back-link { display:block; text-align:center; margin-top:1.2rem; font-size:0.82rem; color:var(--warm-gray); text-decoration:none; }
+  .back-link:hover { color:var(--rose); }
+  .no-citas { text-align:center; padding:1.5rem; color:var(--warm-gray); font-size:0.85rem; font-style:italic; }
+</style>
+</head>
+<body>
+<header>
+  <div class="salon-name">Nail Glam <span>Estefania</span></div>
+  <div class="header-sub">Cancelar cita</div>
+</header>
+<main>
+  <div class="card">
+    <div id="app"></div>
+  </div>
+</main>
+
+<script>
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6zmE9s6Dv7HlnT57k1C-n0pKgyIR-bKRF0IYeFqGx0_0b56h8t82ymaog-IvYRJ1Zvg/exec';
+var WHATSAPP = '34672574200';
+
+var state = { step: 'form', telefono: '', citas: [], cancelando: false, cancelada: null, error: '' };
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function fmtFecha(f) {
+  if (!f) return '';
+  var days = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  var months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var d = new Date(f+'T12:00:00');
+  return days[d.getDay()]+', '+d.getDate()+' de '+months[d.getMonth()];
+}
+
+function fetchJSON(url, intentos) {
+  intentos = intentos || 3;
+  return fetch(url).then(function(r){ return r.text(); }).then(function(txt){
+    try {
+      var data = JSON.parse(txt);
+      if (data && data.error) return [];
+      return Array.isArray(data) ? data : [];
+    } catch(e) {
+      if (intentos > 1) return new Promise(function(res){ setTimeout(function(){ res(fetchJSON(url, intentos-1)); }, 1500); });
+      return [];
+    }
+  }).catch(function(){
+    if (intentos > 1) return new Promise(function(res){ setTimeout(function(){ res(fetchJSON(url, intentos-1)); }, 1500); });
+    return [];
+  });
+}
+
+function buscarCitas() {
+  var tel = state.telefono.replace(/\D/g,'');
+  if (tel.length < 9) { state.error = 'Introduce un número de teléfono válido.'; render(); return; }
+  state.step = 'loading'; state.error = ''; render();
+  var hoy = todayStr();
+  fetchJSON(SCRIPT_URL+'?sheet=Citas').then(function(citas){
+    state.citas = (citas||[]).filter(function(c){
+      var cTel = (c['Teléfono']||c.Telefono||'').replace(/\D/g,'');
+      // Últimos 9 dígitos para comparar (por si hay prefijo)
+      return cTel.slice(-9) === tel.slice(-9)
+        && c.Fecha >= hoy
+        && c.Estado !== 'cancelada'
+        && c.Estado !== 'completada';
+    }).sort(function(a,b){ return a.Fecha > b.Fecha ? 1 : -1; });
+    state.step = 'lista';
+    render();
+  });
+}
+
+function cancelarCita(id, nombre, fecha, hora) {
+  if (!confirm('¿Segura que quieres cancelar tu cita del '+fmtFecha(fecha)+' a las '+hora+'?')) return;
+  state.cancelando = id; render();
+  var encoded = btoa(unescape(encodeURIComponent(JSON.stringify({Estado:'cancelada'}))));
+  fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(id)+'&_data='+encodeURIComponent(encoded))
+  .then(function(){
+    state.cancelada = {nombre:nombre, fecha:fecha, hora:hora};
+    state.cancelando = false;
+    state.step = 'ok';
+    render();
+  }).catch(function(){
+    state.cancelando = false;
+    state.error = 'Hubo un problema al cancelar. Por favor escríbeme por WhatsApp.';
+    state.step = 'lista';
+    render();
+  });
+}
+
+function render() {
+  var app = document.getElementById('app');
+  if (state.step === 'form') {
+    app.innerHTML = '<div class="card-title">Cancelar mi cita</div>'
+      +'<div class="card-sub">Introduce tu número de teléfono para ver tus próximas citas y cancelar la que necesites.</div>'
+      +(state.error ? '<div class="msg msg-error">'+state.error+'</div>' : '')
+      +'<label class="form-label">Tu número de teléfono</label>'
+      +'<input class="form-input" id="telInput" type="tel" placeholder="612 345 678" value="'+state.telefono+'">'
+      +'<button class="btn-primary" id="buscarBtn">Buscar mis citas</button>'
+      +'<a class="back-link" href="reservas.html">← Volver a reservar cita</a>';
+    var inp = document.getElementById('telInput');
+    inp.addEventListener('input', function(){ state.telefono = this.value; });
+    inp.addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('buscarBtn').click(); });
+    document.getElementById('buscarBtn').addEventListener('click', buscarCitas);
+  } else if (state.step === 'loading') {
+    app.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Buscando tus citas...</div>';
+  } else if (state.step === 'lista') {
+    var html = '<div class="card-title">Tus próximas citas</div>';
+    if (state.error) html += '<div class="msg msg-error">'+state.error+'</div>';
+    if (!state.citas.length) {
+      html += '<div class="no-citas">No tienes citas próximas con este número.</div>'
+        +'<div class="msg msg-info" style="margin-top:1rem;">Si crees que es un error, escríbeme por WhatsApp y lo miramos juntas 💕</div>';
+    } else {
+      html += state.citas.map(function(c){
+        var isCancelando = state.cancelando === c.ID;
+        return '<div class="cita-card">'
+          +'<div class="cita-fecha">'+fmtFecha(c.Fecha)+' · '+c.Hora+'</div>'
+          +'<div class="cita-detalle">'+c.Servicio+'</div>'
+          +(isCancelando
+            ? '<div class="spinner-wrap" style="padding:0.8rem 0"><div class="spinner"></div></div>'
+            : '<button class="btn-cancel-cita" data-id="'+c.ID+'" data-nombre="'+(c.Nombre||'')+'" data-fecha="'+c.Fecha+'" data-hora="'+c.Hora+'">✕ Cancelar esta cita</button>')
+          +'</div>';
+      }).join('');
+    }
+    html += '<button class="btn-primary" id="volverBtn" style="margin-top:0.5rem;background:none;border:1.5px solid var(--light-gray);color:var(--warm-gray);">Buscar con otro número</button>'
+      +'<a class="back-link" href="reservas.html">← Volver a reservar cita</a>';
+    app.innerHTML = html;
+    document.querySelectorAll('.btn-cancel-cita').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        cancelarCita(btn.dataset.id, btn.dataset.nombre, btn.dataset.fecha, btn.dataset.hora);
+      });
+    });
+    document.getElementById('volverBtn').addEventListener('click', function(){
+      state.step='form'; state.citas=[]; state.error=''; render();
+    });
+  } else if (state.step === 'ok') {
+    var c = state.cancelada;
+    var waMsg = encodeURIComponent('Hola Estefanía, soy '+c.nombre+'. He cancelado mi cita del '+fmtFecha(c.fecha)+' a las '+c.hora+'. Si necesitas algo más no dudes en escribirme.');
+    app.innerHTML = '<div style="text-align:center;padding:1rem 0;">'
+      +'<div style="font-size:3rem;margin-bottom:1rem;">✅</div>'
+      +'<div class="card-title">Cita cancelada</div>'
+      +'<div class="card-sub" style="margin-top:0.5rem;">Tu cita del <strong>'+fmtFecha(c.fecha)+'</strong> a las <strong>'+c.hora+'</strong> ha sido cancelada.<br><br>Si necesitas volver a reservar, hazlo cuando quieras desde la web. ¡Hasta pronto! 💕</div>'
+      +'<a href="https://wa.me/'+WHATSAPP+'?text='+waMsg+'" target="_blank" class="btn-primary" style="display:block;margin-top:1.5rem;text-decoration:none;text-align:center;">💬 Avisar por WhatsApp</a>'
+      +'<a class="back-link" href="reservas.html">Reservar nueva cita</a>'
+      +'</div>';
+  }
+}
+
+render();
+// Precalentar Google Script
+setTimeout(function(){ try { fetch(SCRIPT_URL+'?sheet=Citas').catch(function(){}); } catch(e){} }, 300);
+</script>
+</body>
+</html>

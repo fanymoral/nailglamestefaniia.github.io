@@ -457,10 +457,26 @@ function apiDeleteAll(sheet) {
   return fetch(API_URL+'?_action=deleteAll&sheet='+encodeURIComponent(sheet));
 }
 function cancelCita(id) {
-  apiPatch('Citas','ID',id,{Estado:'cancelada'}).then(function(){ loadData(); });
+  // Actualizar localmente de inmediato (sin esperar al servidor)
+  app.citas = app.citas.map(function(c){
+    return String(c.ID)===String(id) ? Object.assign({},c,{Estado:'cancelada'}) : c;
+  });
+  app.modal = null;
+  render();
+  // Sincronizar con el servidor en segundo plano
+  apiPatch('Citas','ID',id,{Estado:'cancelada'}).catch(function(){
+    // Si falla, recargar para asegurar consistencia
+    loadData();
+  });
 }
 
 function completarCita(cita, onDone) {
+  // Actualizar localmente de inmediato
+  app.citas = app.citas.map(function(c){
+    return String(c.ID)===String(cita.ID) ? Object.assign({},c,{Estado:'completada'}) : c;
+  });
+  app.modal = null;
+  render();
   apiPatch('Citas','ID',cita.ID,{Estado:'completada'}).then(function(){
     // Si tiene bono, restar sesión a la clienta
     var notas = cita.Notas || cita.notas || '';

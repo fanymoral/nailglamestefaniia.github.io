@@ -660,7 +660,7 @@ function renderBonos() {
       +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">'
       +'<div>'
       +'<div class="cita-nombre">'+c.Nombre+(agotado?' <span style="font-size:0.7rem;color:var(--warm-gray);font-weight:400;">· Bono agotado</span>':'')+'</div>'
-      +'<div class="cita-tel" style="margin-top:0.15rem;">🎟️ '+c.Bono+'</div>'
+      +'<div class="cita-tel" style="margin-top:0.15rem;">🎟️ '+(c.BonoTipo||(c.Bono!=='SI'?c.Bono:'Bono activo'))+'</div>'
       +(tel?'<div class="cita-tel">📱 '+c['Teléfono']+'</div>':'')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">'
@@ -677,7 +677,10 @@ function renderBonos() {
   }).join('');
 
   return '<div class="block-section">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">'
     +'<div class="block-title">🎟️ Bonos activos<br><small style="font-family:DM Sans,sans-serif;font-size:0.78rem;color:var(--warm-gray);font-weight:300">'+conBono.length+' clienta'+(conBono.length!==1?'s':'')+' con bono en curso</small></div>'
+    +'<button id="recargarBonosBtn" style="background:none;border:1.5px solid var(--light-gray);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.75rem;cursor:pointer;color:var(--warm-gray);font-family:DM Sans,sans-serif;">🔄 Actualizar</button>'
+    +'</div>'
     +'<div class="citas-list" style="margin-top:1rem;">'+items+'</div>'
     +'</div>';
 }
@@ -1448,6 +1451,10 @@ function bindEvents() {
         cancelCita(btn.dataset.cancelid);
       }
     });
+  });
+  var recargarBonosBtn = document.getElementById('recargarBonosBtn');
+  if (recargarBonosBtn) recargarBonosBtn.addEventListener('click', function(){
+    clearCache(); loadData();
   });
   document.querySelectorAll('[data-renovar]').forEach(function(btn){
     btn.addEventListener('click', function(){

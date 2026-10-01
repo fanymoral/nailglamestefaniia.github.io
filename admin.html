@@ -148,6 +148,7 @@
   .agenda-appt .aa-time { font-weight: 600; font-size: 0.6rem; pointer-events: none; }
   .agenda-appt .aa-name { font-weight: 500; pointer-events: none; }
   .agenda-appt .aa-service { opacity: 0.85; pointer-events: none; }
+  .agenda-appt .aa-dur { font-weight: 400; opacity: 0.75; }
   /* Service colors */
   .svc-semi     { background: #F2C4D8; border-left: 3px solid #E8829F; color: #3A1A28; }
   .svc-gel      { background: #C8E6C9; border-left: 3px solid #66BB6A; color: #1B3A1C; }
@@ -1004,17 +1005,21 @@ function renderAgenda() {
     return '<div class="'+cls+'"><div class="agenda-header-day">'+DAY_NAMES[d.getDay()]+'</div><div class="agenda-header-num">'+d.getDate()+'</div></div>';
   }).join('');
 
-  // Body rows per 30 minutes
-  var CELL_HEIGHT = 80;
+  // Body rows per 15 minutes
+  var CELL_HEIGHT = 28;
+  var SLOT_MIN = 15;
   var totalMins = maxMins - minMins;
-  var totalHeight = (totalMins / 30) * CELL_HEIGHT;
+  var totalHeight = (totalMins / SLOT_MIN) * CELL_HEIGHT;
 
   // Build grid rows: time label + 7 day cells per row
   var bodyRows = '';
-  var CELL_HEIGHT = 80;
-  for (var m30 = minMins; m30 < maxMins; m30 += 30) {
+  for (var m30 = minMins; m30 < maxMins; m30 += SLOT_MIN) {
     var h30 = Math.floor(m30/60), mm30 = m30%60;
-    var rowHtml = '<div class="agenda-hour-label" style="height:'+CELL_HEIGHT+'px;font-size:0.65rem;line-height:'+CELL_HEIGHT+'px;">'+pad(h30)+':'+pad(mm30)+'</div>';
+    var isHour = m30%60===0, isHalf = m30%30===0;
+    var labelTxt = isHour ? (pad(h30)+':00') : (isHalf ? pad(h30)+':30' : '');
+    var borderTop = isHour ? 'border-top:1.5px solid #BBB;' : (isHalf ? 'border-top:1px dashed #DDD;' : '');
+    var labelStyle = 'height:'+CELL_HEIGHT+'px;font-size:0.6rem;color:var(--warm-gray);text-align:right;padding-right:6px;display:flex;align-items:flex-start;padding-top:2px;justify-content:flex-end;border-right:1px solid #999;'+borderTop+(isHour?'font-weight:500;':'opacity:0.55;');
+    var rowHtml = '<div style="'+labelStyle+'">'+labelTxt+'</div>';
     days.forEach(function(d){
       var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
       var isBlocked = app.blockedDays.indexOf(ds)>=0;
@@ -1029,7 +1034,7 @@ function renderAgenda() {
       var slotCitas = citasActivas.filter(function(c){
         if (c.Fecha !== ds) return false;
         var cMins = timeToMins(c.Hora);
-        return cMins >= m30 && cMins < m30+30;
+        return cMins >= m30 && cMins < m30+SLOT_MIN;
       });
 
       var nowD = new Date();
@@ -1044,21 +1049,25 @@ function renderAgenda() {
           durMin = parseInt(durStr) || 60;
         }
         var endM = startM + durMin;
-        var topPct = ((startM - m30) / 30) * 100;
-        var heightPx = Math.max((durMin / 30) * CELL_HEIGHT, 26);
+        var topPct = ((startM - m30) / SLOT_MIN) * 100;
+        var heightPx = Math.max((durMin / SLOT_MIN) * CELL_HEIGHT, 20);
         var svcCls = getSvcClass(c.Servicio);
         var hasBono = (c.Notas||'').indexOf('🎟️') >= 0 || (c.Notas||'').indexOf('Bono') >= 0 || (c.Notas||'').indexOf('bono') >= 0;
         // Verde automático si es hoy y la cita ya ha terminado
         var terminada = c.Estado === 'completada' || (c.Fecha === todayISO && nowMins >= endM);
         var extraStyle = terminada ? 'background:#4CAF50!important;border-color:#388E3C!important;opacity:0.92;' : '';
+        var durLabel = durMin >= 60
+          ? (durMin % 60 === 0 ? (durMin/60)+'h' : Math.floor(durMin/60)+'h '+( durMin%60)+'min')
+          : durMin+'min';
         return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" draggable="true" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;'+extraStyle+'">'
-          +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'</div>'
+          +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'<span class="aa-dur"> · '+durLabel+'</span></div>'
           +'<div class="aa-name">'+c.Nombre+'</div>'
           +'<div class="aa-service">'+c.Servicio+'</div>'
           +'</div>';
       }).join('');
 
-      rowHtml += '<div class="'+cls+'" data-dropdate="'+ds+'" data-droptime="'+slotTime+'" style="height:'+CELL_HEIGHT+'px;">'+appts+'</div>';
+      var borderStyle = isHour ? 'border-top:1.5px solid #BBB;' : (isHalf ? 'border-top:1px dashed #DDD;' : 'border-top:1px dotted #EEE;');
+      rowHtml += '<div class="'+cls+'" data-dropdate="'+ds+'" data-droptime="'+slotTime+'" style="height:'+CELL_HEIGHT+'px;'+borderStyle+'">'+appts+'</div>';
     });
     bodyRows += rowHtml;
   }

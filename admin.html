@@ -272,6 +272,7 @@ var app = {
   statsMonth: null,
   citaFilter: '',
   listaEspera: [],
+  diasEspeciales: [],
   rescheduling: false
 };
 
@@ -358,10 +359,29 @@ function warmUp() {
   try { fetch(API_URL+'?sheet=Citas').catch(function(){}); } catch(e) {}
 }
 
+function normalizarClienta(c) {
+  // Normalizar variaciones de keys que puede devolver el API
+  var bono = c.Bono || c.bono || '';
+  var bonoTipo = c.BonoTipo || c.bonotipo || c.Bonotipo || '';
+  // Si Bono tiene el nombre del bono directamente (no 'SI'), usarlo como BonoTipo también
+  if (bono && bono !== 'SI' && !bonoTipo) bonoTipo = bono;
+  return {
+    Nombre: c.Nombre || c.nombre || c.NOMBRE || '',
+    'Teléfono': c['Teléfono'] || c.Telefono || c.telefono || c.TELEFONO || '',
+    Producto: c.Producto || c.producto || '',
+    Alergias: c.Alergias || c.alergias || '',
+    Notas: c.Notas || c.notas || '',
+    Bono: bono,
+    BonoTipo: bonoTipo,
+    BonoSesiones: c.BonoSesiones || c.bonosesiones || c.Bonosesiones || '',
+    'Cumpleaños': c['Cumpleaños'] || c.Cumpleanos || c.cumpleanos || '',
+    Observaciones: c.Observaciones || c.observaciones || ''
+  };
+}
 function applyResults(results) {
   app.citas = results[0] || [];
   app.blockedDays = (results[1]||[]).map(function(b){return b.Fecha||b.fecha||'';}).filter(Boolean);
-  app.clientas = results[2] || [];
+  app.clientas = (results[2] || []).map(normalizarClienta);
   app.listaEspera = results[3] || [];
   var horarios = results[4] || [];
   if (horarios.length > 0 && horarios[0].Config) {
@@ -374,6 +394,7 @@ function applyResults(results) {
       app.schedule = numSchedule;
     } catch(e) {}
   }
+  app.diasEspeciales = (results[5] || []).filter(function(d){ return d.Fecha && d.Horario; });
 }
 
 function loadData(cb) {
@@ -393,6 +414,7 @@ function loadData(cb) {
   var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
   var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
   var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
+  var especP    = fetchJSON(API_URL+'?sheet=DiasEspeciales');
 
   // Aviso si tarda más de 12 segundos
   var tardandoTimer = setTimeout(function() {
@@ -402,7 +424,7 @@ function loadData(cb) {
     }
   }, 12000);
 
-  Promise.all([citasP, bloquP, clientP, esperaP, horariosP]).then(function(results){
+  Promise.all([citasP, bloquP, clientP, esperaP, horariosP, especP]).then(function(results){
     clearTimeout(tardandoTimer);
     applyResults(results);
     saveCache(results); // guardar en caché para la próxima vez
@@ -427,7 +449,8 @@ function startAutoRefresh() {
     var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
     var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
     var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
-    Promise.all([citasP, bloquP, clientP, esperaP, horariosP]).then(function(results){
+    var especP    = fetchJSON(API_URL+'?sheet=DiasEspeciales');
+    Promise.all([citasP, bloquP, clientP, esperaP, horariosP, especP]).then(function(results){
       applyResults(results);
       saveCache(results);
       render();
@@ -533,14 +556,15 @@ function renderClientas() {
     cards = '<div class="no-clientas">No hay clientas todavía. Pulsa "Nueva clienta" para añadir una.</div>';
   } else {
     cards = '<div class="clientas-grid">'+filtered.map(function(c, idx){
+      var cNombre = c.Nombre || c.nombre || c.NOMBRE || '';
       var historial = app.citas.filter(function(cita){
-        return (cita.Nombre||'').toLowerCase() === (c.Nombre||'').toLowerCase() && cita.Estado !== 'cancelada';
+        return (cita.Nombre||'').toLowerCase() === (cNombre||'').toLowerCase() && cita.Estado !== 'cancelada';
       }).sort(function(a,b){ return a.Fecha>b.Fecha?-1:1; }).slice(0,3);
       var histHtml = historial.length
         ? historial.map(function(h){ return '<div class="clienta-cita">'+h.Fecha+' · '+h.Hora+' · '+h.Servicio+'</div>'; }).join('')
         : '<div style="font-size:0.72rem;color:#CCC">Sin citas registradas</div>';
       return '<div class="clienta-card">'
-        +'<div class="clienta-name">'+c.Nombre+'</div>'
+        +'<div class="clienta-name">'+(cNombre||'Sin nombre')+'</div>'
         +'<div class="clienta-tel">📱 '+(c['Teléfono']||'—')+'</div>'
         +(c.Producto?'<div class="clienta-field"><div class="clienta-field-label">Producto</div><div class="clienta-field-val">'+c.Producto+'</div></div>':'')
         +(c.Alergias?'<div class="clienta-field"><div class="clienta-field-label">Alergias</div><div class="clienta-field-val">'+c.Alergias+'</div></div>':'')
@@ -621,14 +645,15 @@ function renderBonos() {
   }
 
   var items = conBono.map(function(c){
+    var nombre = c.Nombre || c.nombre || c.NOMBRE || '';
     var total = 3;
-    var restantes = parseInt(c.BonoSesiones||0);
+    var restantes = parseInt(c.BonoSesiones||c.bonosesiones||0);
     var usadas = total - restantes;
 
     // ¿Tiene una cita de bono hoy que ya ha terminado? → círculo extra en verde hoy
     var citaHoyTerminada = app.citas.some(function(cita){
       if (cita.Estado === 'cancelada') return false;
-      var mismoNombre = (cita.Nombre||'').toLowerCase() === (c.Nombre||'').toLowerCase();
+      var mismoNombre = (cita.Nombre||'').toLowerCase() === (nombre||'').toLowerCase();
       var esBono = (cita.Notas||'').indexOf('Bono') >= 0 || (cita.Notas||'').indexOf('bono') >= 0 || (cita.Notas||'').indexOf('🎟️') >= 0;
       if (!mismoNombre || !esBono) return false;
       if (cita.Estado === 'completada') return true;
@@ -655,17 +680,18 @@ function renderBonos() {
 
     var agotado = restantes === 0 && !citaHoyTerminada;
     var pendientes = total - verdesEfectivas;
-    var tel = (c['Teléfono']||'').replace(/\D/g,'');
+    var tel = (c['Teléfono']||c.Telefono||'').replace(/\D/g,'');
+    var bonoTipo = c.BonoTipo || (c.Bono && c.Bono !== 'SI' ? c.Bono : '') || 'Bono activo';
     return '<div class="cita-card" style="display:block;'+(agotado?'opacity:0.7;':'')+'">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">'
       +'<div>'
-      +'<div class="cita-nombre">'+c.Nombre+(agotado?' <span style="font-size:0.7rem;color:var(--warm-gray);font-weight:400;">· Bono agotado</span>':'')+'</div>'
-      +'<div class="cita-tel" style="margin-top:0.15rem;">🎟️ '+(c.BonoTipo||(c.Bono!=='SI'?c.Bono:'Bono activo'))+'</div>'
-      +(tel?'<div class="cita-tel">📱 '+c['Teléfono']+'</div>':'')
+      +'<div class="cita-nombre">'+(nombre||'Sin nombre')+(agotado?' <span style="font-size:0.7rem;color:var(--warm-gray);font-weight:400;">· Bono agotado</span>':'')+'</div>'
+      +'<div class="cita-tel" style="margin-top:0.15rem;">🎟️ '+bonoTipo+'</div>'
+      +(tel?'<div class="cita-tel">📱 '+(c['Teléfono']||c.Telefono||'')+'</div>':'')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">'
       +(tel?'<a href="https://wa.me/'+tel+'" target="_blank" class="btn-wa" style="font-size:0.75rem;">WhatsApp</a>':'')
-      +(agotado?'<button class="btn-primary" data-renovar="'+c.Nombre+'" style="font-size:0.75rem;padding:0.4rem 0.8rem;background:var(--rose);">🔄 Renovar bono</button>':'')
+      +(agotado?'<button class="btn-primary" data-renovar="'+nombre+'" style="font-size:0.75rem;padding:0.4rem 0.8rem;background:var(--rose);">🔄 Renovar bono</button>':'')
       +'</div>'
       +'</div>'
       +'<div style="margin-top:0.9rem;display:flex;align-items:center;gap:0.3rem;">'
@@ -1227,7 +1253,27 @@ function renderBloquear() {
     +'</div>'
     +'<div style="margin-top:1.5rem"><div class="block-title" style="font-size:1.1rem">Dias bloqueados</div>'
     +'<div style="font-size:0.78rem;color:var(--warm-gray);margin-bottom:0.8rem">Pulsa x para desbloquear</div>'
-    +blockedTagsHtml+'</div></div>';
+    +blockedTagsHtml+'</div></div>'
+    // Días especiales
+    +'<div class="block-section" style="margin-top:1.2rem;">'
+    +'<div class="block-title">📅 Días especiales abiertos</div>'
+    +'<div class="block-sub">Abre un día concreto aunque ese día de la semana esté cerrado en tu horario habitual.</div>'
+    +'<div class="block-input-row" style="align-items:flex-end;gap:0.6rem;flex-wrap:wrap;">'
+    +'<div><label class="form-label">Fecha</label><input type="date" class="block-input" id="especFecha" style="width:auto;"></div>'
+    +'<div><label class="form-label">Horario (ej: 9:00-14:00)</label><input type="text" class="block-input" id="especHorario" placeholder="9:00-14:00" style="width:160px;"></div>'
+    +'<button class="block-btn block-btn-confirm" id="addEspecialBtn">+ Añadir</button>'
+    +'</div>'
+    +(app.diasEspeciales && app.diasEspeciales.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;">'
+        + app.diasEspeciales.map(function(d){
+            return '<span style="background:var(--light-gray);border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;display:inline-flex;align-items:center;gap:0.4rem;">'
+              +'📅 '+d.Fecha+' · '+d.Horario
+              +'<button data-especfecha="'+d.Fecha+'" style="background:none;border:none;cursor:pointer;color:var(--warm-gray);font-size:0.9rem;padding:0;margin-left:2px;">✕</button>'
+              +'</span>';
+          }).join('')
+        +'</div>'
+      : '<div style="font-size:0.8rem;color:var(--warm-gray);margin-top:0.5rem;">No hay días especiales configurados.</div>')
+    +'</div>';
 }
 
 function renderModal() {
@@ -1454,7 +1500,7 @@ function bindEvents() {
   });
   var recargarBonosBtn = document.getElementById('recargarBonosBtn');
   if (recargarBonosBtn) recargarBonosBtn.addEventListener('click', function(){
-    clearCache(); loadData();
+    loadData();
   });
   document.querySelectorAll('[data-renovar]').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -1669,6 +1715,27 @@ function bindEvents() {
       render();
     });
   });
+  // Días especiales
+  var addEspecialBtn = document.getElementById('addEspecialBtn');
+  if (addEspecialBtn) addEspecialBtn.addEventListener('click', function(){
+    var fecha = (document.getElementById('especFecha').value||'').trim();
+    var horario = (document.getElementById('especHorario').value||'').trim();
+    if (!fecha) { alert('Elige una fecha'); return; }
+    if (!horario) { alert('Indica el horario, p.ej: 9:00-14:00'); return; }
+    if (!/^\d{1,2}:\d{2}-\d{1,2}:\d{2}/.test(horario)) { alert('Formato de horario incorrecto. Usa p.ej: 9:00-14:00'); return; }
+    addEspecialBtn.disabled = true; addEspecialBtn.textContent = 'Guardando...';
+    apiPost('DiasEspeciales', {Fecha: fecha, Horario: horario})
+      .then(function(){ loadData(); })
+      .catch(function(){ alert('Error al guardar. Inténtalo de nuevo.'); addEspecialBtn.disabled=false; addEspecialBtn.textContent='+ Añadir'; });
+  });
+  document.querySelectorAll('[data-especfecha]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var fecha = btn.dataset.especfecha;
+      if (!confirm('¿Quitar el día especial '+fecha+'?')) return;
+      apiDelete('DiasEspeciales','Fecha',fecha).then(function(){ loadData(); }).catch(function(){ loadData(); });
+    });
+  });
+
   var cancelCF = document.getElementById('cancelClientaBtn');
   if (cancelCF) cancelCF.addEventListener('click', function(){ app.clientaEditing=null; render(); });
   var saveCF = document.getElementById('saveClientaBtn');

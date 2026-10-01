@@ -178,7 +178,7 @@ var state = {
   step:1, services:[], date:null, time:null,
   name:'', phone:'', notes:'',
   month: new Date().getMonth(), year: new Date().getFullYear(),
-  bookedSlots: [], blockedDays: [], loading: false,
+  bookedSlots: [], blockedDays: [], diasEspeciales: {}, loading: false,
   clientaBonoSesiones: -1, clientaBono: '',
   hasBono: false, bonoType: '', firstTime: false, brokenNails: 0,
   showBrokenModal: false, showBonoModal: false, bonoShown: false,
@@ -221,7 +221,8 @@ function loadData(cb) {
   var citasP    = fetchJSON(SHEETDB_URL+'?sheet=Citas');
   var bloquP    = fetchJSON(SHEETDB_URL+'?sheet=Bloqueados');
   var horariosP = fetchJSON(SHEETDB_URL+'?sheet=Horarios');
-  Promise.all([citasP, bloquP, horariosP]).then(function(results) {
+  var especP    = fetchJSON(SHEETDB_URL+'?sheet=DiasEspeciales');
+  Promise.all([citasP, bloquP, horariosP, especP]).then(function(results) {
     state.bookedSlots = (results[0] || []).filter(function(c){ return c.Estado !== 'cancelada'; });
     state.blockedDays = (results[1] || []).map(function(b){ return b.Fecha || b.fecha || ''; }).filter(Boolean);
     var horarios = results[2] || [];
@@ -233,6 +234,11 @@ function loadData(cb) {
         CONFIG.schedule = numSchedule;
       } catch(e) { /* keep default */ }
     }
+    // Días especiales: fechas sueltas abiertas con horario propio
+    state.diasEspeciales = {};
+    (results[3] || []).forEach(function(d){
+      if (d.Fecha && d.Horario) state.diasEspeciales[d.Fecha] = d.Horario;
+    });
     showLoading(false);
     if (cb) cb();
   }).catch(function(){ showLoading(false); if (cb) cb(); });
@@ -295,14 +301,29 @@ function isSlotTaken(dateStr, timeStr, slotDur) {
 function isDayBlocked(dateStr) {
   return state.blockedDays.indexOf(dateStr) >= 0;
 }
-function isDayOpen(dow){ return (CONFIG.schedule[dow]||[]).length > 0; }
+function isDayOpen(dow, dateStr){
+  if (dateStr && state.diasEspeciales && state.diasEspeciales[dateStr]) return true;
+  return (CONFIG.schedule[dow]||[]).length > 0;
+}
 
 function isDayFull(dateStr) {
   var slots = getSlots(dateStr, state.services.reduce(function(a,s){return a+s.duration;},0) || 30);
   return slots.length === 0;
 }
+function parseHorarioEspecial(horario) {
+  // Parsea "9:00-14:00" o "9:00-14:00,16:00-19:00" → array de rangos [[540,840],...]
+  var rangos = [];
+  (horario||'').split(',').forEach(function(parte){
+    var m = parte.trim().match(/^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
+    if (m) rangos.push([parseInt(m[1])*60+parseInt(m[2]), parseInt(m[3])*60+parseInt(m[4])]);
+  });
+  return rangos;
+}
 function getSlots(dateStr, dur) {
-  var slots=[], dow=new Date(dateStr+'T12:00:00').getDay(), ranges=CONFIG.schedule[dow]||[];
+  var slots=[], dow=new Date(dateStr+'T12:00:00').getDay();
+  // ¿Es día especial? Usar su horario propio
+  var especial = state.diasEspeciales && state.diasEspeciales[dateStr];
+  var ranges = especial ? parseHorarioEspecial(especial) : (CONFIG.schedule[dow]||[]);
   // Si es hoy, no mostrar horas pasadas
   var now = new Date();
   var todayStr = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
@@ -504,7 +525,7 @@ function renderStep2() {
     var ds=state.year+'-'+pad(state.month+1)+'-'+pad(d);
     var blocked=isDayBlocked(ds);
     var isPast=date<today;
-    var unavail=isPast||date>maxD||!isDayOpen(date.getDay())||blocked;
+    var unavail=isPast||date>maxD||!isDayOpen(date.getDay(),ds)||blocked;
     var cls='cal-day';
     if (blocked) cls+=' blocked';
     else if (unavail) cls+=' past';
@@ -904,10 +925,46 @@ function confirmBooking() {
   fetch(SHEETDB_URL+'?_action=insert&sheet=Citas&_data='+encodeURIComponent(encoded))
   .then(function(r){
     if (!done) { done = true; state.submitting = false; clearTimeout(timeout); showLoading(false); state.step=5; render(); }
+    // Si tiene bono, registrar/actualizar en Clientas automáticamente
+    if (state.hasBono && state.bonoType) {
+      registrarBonoClienta(state.name, state.phone, state.bonoType);
+    }
   })
   .catch(function(err){
     if (!done) { done = true; state.submitting = false; clearTimeout(timeout); showLoading(false); state.step=5; render(); }
+    if (state.hasBono && state.bonoType) {
+      registrarBonoClienta(state.name, state.phone, state.bonoType);
+    }
   });
+
+function registrarBonoClienta(nombre, telefono, tipoBono) {
+  // Buscar si ya existe la clienta en Clientas
+  fetch(SHEETDB_URL+'?sheet=Clientas').then(function(r){ return r.json(); }).then(function(clientas){
+    if (!Array.isArray(clientas)) clientas = [];
+    var tel = telefono.replace(/\D/g,'');
+    var existente = clientas.find(function(c){
+      return (c['Teléfono']||c.Telefono||'').replace(/\D/g,'').slice(-9) === tel.slice(-9);
+    });
+    if (existente) {
+      // Ya existe — actualizar bono si no lo tiene o está agotado
+      var sesiones = parseInt(existente.BonoSesiones||0);
+      if (!existente.Bono || sesiones === 0) {
+        var upd = btoa(unescape(encodeURIComponent(JSON.stringify({Bono: tipoBono, BonoSesiones:'3'}))));
+        fetch(SHEETDB_URL+'?_action=update&sheet=Clientas&col=Tel%C3%A9fono&val='+encodeURIComponent(existente['Teléfono']||existente.Telefono||telefono)+'&_data='+encodeURIComponent(upd)).catch(function(){});
+      }
+    } else {
+      // No existe — crear nueva clienta con bono
+      var nueva = btoa(unescape(encodeURIComponent(JSON.stringify([{
+        Nombre: nombre,
+        'Teléfono': telefono,
+        Bono: tipoBono,
+        BonoSesiones: '3',
+        'Añadida el': new Date().toLocaleDateString('es-ES')
+      }]))));
+      fetch(SHEETDB_URL+'?_action=insert&sheet=Clientas&_data='+encodeURIComponent(nueva)).catch(function(){});
+    }
+  }).catch(function(){});
+}
 }
 
 function renderWelcomeModal() {

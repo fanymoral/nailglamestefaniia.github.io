@@ -85,7 +85,13 @@
   .whatsapp-btn { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 1.5rem; padding: 0.85rem 1.8rem; background: #25D366; color: white; border-radius: 12px; text-decoration: none; font-size: 0.88rem; font-weight: 500; transition: opacity 0.2s; }
   .whatsapp-btn:hover { opacity: 0.9; }
   .info-banner { background: linear-gradient(135deg, #FFF4F8, #FFE8F2); border: 1px solid var(--blush); border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.78rem; color: var(--dark-rose); margin-top: 1rem; line-height: 1.5; }
-  .loading-overlay { position: fixed; inset: 0; background: rgba(250,246,241,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
+  .loading-overlay { position: fixed; inset: 0; background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; z-index: 999; }
+  .loading-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 300; color: var(--espresso); letter-spacing: 0.05em; }
+  .loading-logo span { font-style: italic; color: var(--rose); }
+  .loading-bar-wrap { width: 220px; height: 3px; background: var(--light-gray); border-radius: 99px; overflow: hidden; }
+  .loading-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--blush), var(--rose)); border-radius: 99px; animation: loadbar 2.5s ease-in-out infinite; }
+  .loading-text { font-size: 0.78rem; color: var(--warm-gray); letter-spacing: 0.08em; }
+  @keyframes loadbar { 0%{width:0%;margin-left:0} 50%{width:70%;margin-left:0} 80%{width:70%;margin-left:30%} 100%{width:0%;margin-left:100%} }
   .broken-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.5); display:flex; align-items:center; justify-content:center; z-index:998; padding:1rem; }
   .pay-modal-bg { position:fixed; inset:0; background:rgba(42,26,20,0.6); display:flex; align-items:center; justify-content:center; z-index:999; padding:1rem; }
   .pay-modal { background:var(--white); border-radius:20px; padding:2rem; max-width:360px; width:100%; text-align:center; animation:fadeUp 0.3s ease both; }
@@ -217,7 +223,7 @@ function fetchJSON(url, intentos) {
 
 // Cargar citas y días bloqueados desde Google Sheets
 function loadData(cb) {
-  showLoading(true);
+  if (!document.getElementById('loadingOverlay')) showLoading(true, 'Cargando disponibilidad...');
   var citasP    = fetchJSON(SHEETDB_URL+'?sheet=Citas');
   var bloquP    = fetchJSON(SHEETDB_URL+'?sheet=Bloqueados');
   var horariosP = fetchJSON(SHEETDB_URL+'?sheet=Horarios');
@@ -244,13 +250,17 @@ function loadData(cb) {
   }).catch(function(){ showLoading(false); if (cb) cb(); });
 }
 
-function showLoading(show) {
+function showLoading(show, msg) {
   var el = document.getElementById('loadingOverlay');
   if (show && !el) {
+    var message = msg || 'Cargando disponibilidad...';
     var div = document.createElement('div');
     div.id = 'loadingOverlay';
     div.className = 'loading-overlay';
-    div.innerHTML = '<div class="spinner"></div><div style="color:var(--warm-gray);font-size:0.85rem">Un momento...</div>';
+    div.innerHTML =
+      '<div class="loading-logo">Nail Glam <span>Estefanía</span></div>' +
+      '<div class="loading-bar-wrap"><div class="loading-bar"></div></div>' +
+      '<div class="loading-text">' + message + '</div>';
     document.body.appendChild(div);
   } else if (!show && el) {
     el.remove();
@@ -726,7 +736,6 @@ function bind() {
   var b1=document.getElementById('btn1');
   if (b1) b1.addEventListener('click',function(){
     b1.disabled = true;
-    b1.innerHTML = '<span style="display:inline-flex;align-items:center;gap:0.6rem;justify-content:center;"><span style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.4);border-top-color:white;border-radius:50%;display:inline-block;animation:spin 0.7s linear infinite;flex-shrink:0;"></span>Cargando disponibilidad...</span>';
     loadData(function(){
       if (!state.bonoShown) {
         state.showBonoModal = true;
@@ -882,14 +891,7 @@ function confirmBooking() {
   if (state.brokenNails > 4) totalDur += 15;
 
   // Show loading with message
-  var el = document.getElementById('loadingOverlay');
-  if (!el) {
-    var div = document.createElement('div');
-    div.id = 'loadingOverlay';
-    div.className = 'loading-overlay';
-    div.innerHTML = '<div class="spinner"></div><div style="color:var(--warm-gray);font-size:0.85rem;text-align:center;">Guardando tu cita...<br><span style="font-size:0.75rem;opacity:0.7">Puede tardar unos segundos</span></div>';
-    document.body.appendChild(div);
-  }
+  showLoading(true, 'Guardando tu cita...<br><span style="font-size:0.75rem;opacity:0.7">Puede tardar unos segundos</span>');
 
   // El ID se fija una sola vez por reserva (no cambia si hay reintentos)
   if (!state.bookingId) state.bookingId = String(Date.now());

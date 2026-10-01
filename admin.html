@@ -218,6 +218,7 @@
   .bcal-day.bcal-open:hover { background:var(--light-gray); border-color:var(--blush); }
   .bcal-day.bcal-selected { background:var(--rose); color:white; border-color:var(--rose); font-weight:500; }
   .bcal-day.bcal-blocked { background:#F7EBF0; color:var(--warm-gray); border-color:var(--blush); cursor:default; }
+  .bcal-day.bcal-especial { background:#E8F5E9; color:#2E7D32; border-color:#A5D6A7; }
   .bcal-day.bcal-today:not(.bcal-selected) { border-color:var(--gold); }
   .bcal-x { font-size:0.55rem; }
   .block-actions { display:flex; gap:0.6rem; flex-wrap:wrap; margin-top:1rem; }
@@ -1192,14 +1193,16 @@ function renderBloquear() {
     var isPartial = (amBlocked || pmBlocked) && !fullBlocked;
     var sel = app.blockSelected || [];
     var isSelected = sel.indexOf(ds) >= 0;
+    var esEspecial = app.diasEspeciales && app.diasEspeciales.some(function(e){ return e.Fecha === ds; });
     var cls = 'bcal-day';
     if (isPast) cls += ' bcal-past';
     else if (fullBlocked) cls += ' bcal-blocked';
     else if (isPartial) cls += ' bcal-partial';
     else if (isSelected) cls += ' bcal-selected';
+    else if (esEspecial) cls += ' bcal-especial';
     else cls += ' bcal-open';
     if (date.getTime()===today.getTime()) cls += ' bcal-today';
-    var marker = fullBlocked ? '<span class="bcal-x">🔒</span>' : (isPartial ? '<span class="bcal-x">'+(amBlocked&&pmBlocked?'🔒':(amBlocked?'☀️':'🌙'))+'</span>' : '');
+    var marker = fullBlocked ? '<span class="bcal-x">🔒</span>' : (isPartial ? '<span class="bcal-x">'+(amBlocked&&pmBlocked?'🔒':(amBlocked?'☀️':'🌙'))+'</span>' : (esEspecial ? '<span class="bcal-x">📅</span>' : ''));
     cells += '<div class="'+cls+'"'+(isPast||fullBlocked?'':' data-bdate="'+ds+'"')+'>'+d+marker+'</div>';
   }
   var selArr = app.blockSelected || [];
@@ -1259,7 +1262,7 @@ function renderBloquear() {
     +'<div class="bcal-nav"><button class="nav-btn" id="bPrevM">&#8249;</button><div class="bcal-month-title">'+mNames[bm]+' '+by+'</div><button class="nav-btn" id="bNextM">&#8250;</button></div>'
     +'<div class="bcal-grid">'+dNames.map(function(n){return '<div class="bcal-dayname">'+n+'</div>';}).join('')+cells+'</div>'
     +selHtml
-    +'<div class="agenda-legend" style="margin-top:0.5rem"><div class="legend-item-svc"><span>🔒</span>Día completo bloqueado</div><div class="legend-item-svc"><span>☀️</span>Mañana bloqueada</div><div class="legend-item-svc"><span>🌙</span>Tarde bloqueada</div></div>'
+    +'<div class="agenda-legend" style="margin-top:0.5rem"><div class="legend-item-svc"><span>🔒</span>Día completo bloqueado</div><div class="legend-item-svc"><span>☀️</span>Mañana bloqueada</div><div class="legend-item-svc"><span>🌙</span>Tarde bloqueada</div><div class="legend-item-svc"><span>📅</span>Día especial abierto</div></div>'
     +'<div class="block-actions">'
     +'<button class="block-btn" id="blockWeekBtn">Bloquear semana actual</button>'
     +'<button class="block-btn" id="blockMonthBtn">Bloquear mes completo</button>'

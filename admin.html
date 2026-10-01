@@ -1235,6 +1235,25 @@ function renderBloquear() {
   var blockedTagsHtml = (tagsHtml ? '<div class="blocked-list">'+tagsHtml+'</div>' : '<div style="color:var(--warm-gray);font-size:0.8rem;margin-top:0.5rem">No hay días bloqueados</div>') + limpiarBtn;
 
   return '<div class="block-section">'
+    +'<div class="block-title">📅 Días especiales abiertos</div>'
+    +'<div class="block-sub">Abre un día concreto aunque ese día de la semana esté cerrado en tu horario habitual.</div>'
+    +'<div class="block-input-row" style="align-items:flex-end;gap:0.6rem;flex-wrap:wrap;">'
+    +'<div><label class="form-label">Fecha</label><input type="date" class="block-input" id="especFecha" style="width:auto;"></div>'
+    +'<div><label class="form-label">Horario (ej: 9:00-14:00)</label><input type="text" class="block-input" id="especHorario" placeholder="9:00-14:00" style="width:160px;"></div>'
+    +'<button class="block-btn block-btn-confirm" id="addEspecialBtn">+ Añadir</button>'
+    +'</div>'
+    +(app.diasEspeciales && app.diasEspeciales.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;">'
+        + app.diasEspeciales.map(function(d){
+            return '<span style="background:var(--light-gray);border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;display:inline-flex;align-items:center;gap:0.4rem;">'
+              +'📅 '+d.Fecha+' · '+d.Horario
+              +'<button data-especfecha="'+d.Fecha+'" style="background:none;border:none;cursor:pointer;color:var(--warm-gray);font-size:0.9rem;padding:0;margin-left:2px;">✕</button>'
+              +'</span>';
+          }).join('')
+        +'</div>'
+      : '<div style="font-size:0.8rem;color:var(--warm-gray);margin-top:0.5rem;">No hay días especiales configurados.</div>')
+    +'</div>'
+    +'<div class="block-section" style="margin-top:1.2rem;">'
     +'<div class="block-title">Bloquear días</div>'
     +'<div class="block-sub">Pulsa días para seleccionarlos. Puedes bloquear el día completo, solo la mañana o solo la tarde.</div>'
     +'<div class="bcal-nav"><button class="nav-btn" id="bPrevM">&#8249;</button><div class="bcal-month-title">'+mNames[bm]+' '+by+'</div><button class="nav-btn" id="bNextM">&#8250;</button></div>'
@@ -1253,27 +1272,7 @@ function renderBloquear() {
     +'</div>'
     +'<div style="margin-top:1.5rem"><div class="block-title" style="font-size:1.1rem">Dias bloqueados</div>'
     +'<div style="font-size:0.78rem;color:var(--warm-gray);margin-bottom:0.8rem">Pulsa x para desbloquear</div>'
-    +blockedTagsHtml+'</div></div>'
-    // Días especiales
-    +'<div class="block-section" style="margin-top:1.2rem;">'
-    +'<div class="block-title">📅 Días especiales abiertos</div>'
-    +'<div class="block-sub">Abre un día concreto aunque ese día de la semana esté cerrado en tu horario habitual.</div>'
-    +'<div class="block-input-row" style="align-items:flex-end;gap:0.6rem;flex-wrap:wrap;">'
-    +'<div><label class="form-label">Fecha</label><input type="date" class="block-input" id="especFecha" style="width:auto;"></div>'
-    +'<div><label class="form-label">Horario (ej: 9:00-14:00)</label><input type="text" class="block-input" id="especHorario" placeholder="9:00-14:00" style="width:160px;"></div>'
-    +'<button class="block-btn block-btn-confirm" id="addEspecialBtn">+ Añadir</button>'
-    +'</div>'
-    +(app.diasEspeciales && app.diasEspeciales.length
-      ? '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;">'
-        + app.diasEspeciales.map(function(d){
-            return '<span style="background:var(--light-gray);border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;display:inline-flex;align-items:center;gap:0.4rem;">'
-              +'📅 '+d.Fecha+' · '+d.Horario
-              +'<button data-especfecha="'+d.Fecha+'" style="background:none;border:none;cursor:pointer;color:var(--warm-gray);font-size:0.9rem;padding:0;margin-left:2px;">✕</button>'
-              +'</span>';
-          }).join('')
-        +'</div>'
-      : '<div style="font-size:0.8rem;color:var(--warm-gray);margin-top:0.5rem;">No hay días especiales configurados.</div>')
-    +'</div>';
+    +blockedTagsHtml+'</div></div>';
 }
 
 function renderModal() {

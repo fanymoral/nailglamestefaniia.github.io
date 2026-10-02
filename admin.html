@@ -138,10 +138,14 @@
   .agenda-header-cell.today-head { background: var(--rose); border-radius: 10px; color: white; }
   .agenda-header-cell.today-head .agenda-header-day { color: rgba(255,255,255,0.8); }
   .agenda-header-cell.blocked-head { background: #EEE; border-radius: 10px; }
+  .agenda-header-cell.especial-head { background: linear-gradient(135deg,#FFF0F6,#FFE4EF); border-radius: 10px; border: 1.5px solid var(--blush); }
+  .agenda-header-cell.especial-head .agenda-header-day { color: var(--rose); }
+  .agenda-header-cell.especial-head .agenda-header-num { color: var(--dark-rose); }
   .agenda-body { display: grid; grid-template-columns: 42px repeat(7, 1fr); }
   .agenda-hour-label { font-size: 0.7rem; color: var(--warm-gray); text-align: right; padding-right: 8px; height: 50px; display: flex; align-items: flex-start; padding-top: 4px; border-right: 1px solid var(--light-gray); }
   .agenda-cell { border-left: 1px solid #999; border-bottom: 1px solid #999; position: relative; background: #FFFFFF; }
   .agenda-cell.closed, .agenda-cell.blocked { background: repeating-linear-gradient(45deg, #E8E2E6, #E8E2E6 6px, #D8CED4 6px, #D8CED4 12px); }
+  .agenda-cell.especial-open { background: #FFF8FB; }
   .agenda-hour-label { border-right: 1px solid #999 !important; }
   .agenda-appt { position: absolute; left: 2px; right: 2px; border-radius: 6px; padding: 4px 6px; font-size: 0.68rem; line-height: 1.4; overflow: hidden; cursor: pointer; transition: opacity 0.2s; z-index: 1; }
   .agenda-appt:hover { opacity: 0.85; }
@@ -990,6 +994,20 @@ function renderAgenda() {
       minMins = Math.min(minMins, Math.floor(r[0]/30)*30);
       maxMins = Math.max(maxMins, Math.ceil(r[1]/30)*30);
     });
+    // También incluir rangos de días especiales
+    var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    var especial = app.diasEspeciales && app.diasEspeciales.find(function(e){ return e.Fecha === ds; });
+    if (especial && especial.Horario) {
+      var parts = especial.Horario.split('-');
+      if (parts.length === 2) {
+        var eStart = timeToMins(parts[0].trim());
+        var eEnd = timeToMins(parts[1].trim());
+        if (eStart && eEnd) {
+          minMins = Math.min(minMins, Math.floor(eStart/30)*30);
+          maxMins = Math.max(maxMins, Math.ceil(eEnd/30)*30);
+        }
+      }
+    }
   });
   if (minMins === 24*60) { minMins = 16*60; maxMins = 20*60+30; }
   var minHour = Math.floor(minMins/60);
@@ -1001,7 +1019,8 @@ function renderAgenda() {
     var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
     var isToday = d.getTime()===today.getTime();
     var isBlocked = app.blockedDays.indexOf(ds)>=0;
-    var cls = 'agenda-header-cell'+(isToday?' today-head':'')+(isBlocked?' blocked-head':'');
+    var isEspecialHead = !isBlocked && app.diasEspeciales && app.diasEspeciales.some(function(e){ return e.Fecha === ds; });
+    var cls = 'agenda-header-cell'+(isToday?' today-head':'')+(isBlocked?' blocked-head':'')+(isEspecialHead?' especial-head':'');
     return '<div class="'+cls+'"><div class="agenda-header-day">'+DAY_NAMES[d.getDay()]+'</div><div class="agenda-header-num">'+d.getDate()+'</div></div>';
   }).join('');
 
@@ -1027,7 +1046,18 @@ function renderAgenda() {
       var dow = d.getDay();
       var ranges = schedNow[dow] || schedNow[String(dow)] || [];
       var isOpen = ranges.some(function(r){ return m30 >= r[0] && m30 < r[1]; });
-      var cls = 'agenda-cell' + (!isOpen ? ' closed' : '') + (isBlocked ? ' blocked' : '');
+      // Días especiales abiertos — abrir slots según su horario propio
+      var especial = !isBlocked && app.diasEspeciales && app.diasEspeciales.find(function(e){ return e.Fecha === ds; });
+      var isEspecialOpen = false;
+      if (especial && especial.Horario) {
+        var eParts = especial.Horario.split('-');
+        if (eParts.length === 2) {
+          var eS = timeToMins(eParts[0].trim()), eE = timeToMins(eParts[1].trim());
+          if (eS && eE && m30 >= eS && m30 < eE) isEspecialOpen = true;
+        }
+      }
+      if (isEspecialOpen) isOpen = true;
+      var cls = 'agenda-cell' + (!isOpen ? ' closed' : '') + (isBlocked ? ' blocked' : '') + (isEspecialOpen ? ' especial-open' : '');
       var slotTime = pad(Math.floor(m30/60))+':'+pad(m30%60);
 
       // Find citas that start in this 30-min slot

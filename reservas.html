@@ -56,6 +56,8 @@
   .cal-day.selected { background: var(--rose); color: var(--white); border-color: var(--rose); font-weight: 500; }
   .cal-day.today:not(.selected) { border-color: var(--blush); }
   .cal-day.blocked { color: #CCC; cursor: not-allowed; text-decoration: line-through; }
+  .cal-day.especial:not(.selected) { background: var(--white); border-color: var(--blush); color: var(--espresso); font-weight: 500; }
+  .cal-day.especial:hover:not(.selected) { background: var(--light-gray); border-color: var(--rose); }
   .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 0.6rem; margin-top: 1rem; }
   .slot-btn { border: 1.5px solid var(--light-gray); border-radius: 8px; padding: 0.55rem 0.4rem; text-align: center; font-size: 0.82rem; cursor: pointer; background: var(--cream); color: var(--espresso); transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
   .slot-btn:hover:not(.taken) { border-color: var(--blush); }
@@ -221,17 +223,26 @@ function fetchJSON(url, intentos) {
   });
 }
 
-// Cargar citas y días bloqueados desde Google Sheets
+// Cargar citas y días bloqueados desde Google Sheets (1 sola llamada)
 function loadData(cb) {
   if (!document.getElementById('loadingOverlay')) showLoading(true, 'Cargando disponibilidad...');
-  var citasP    = fetchJSON(SHEETDB_URL+'?sheet=Citas');
-  var bloquP    = fetchJSON(SHEETDB_URL+'?sheet=Bloqueados');
-  var horariosP = fetchJSON(SHEETDB_URL+'?sheet=Horarios');
-  var especP    = fetchJSON(SHEETDB_URL+'?sheet=DiasEspeciales');
-  Promise.all([citasP, bloquP, horariosP, especP]).then(function(results) {
-    state.bookedSlots = (results[0] || []).filter(function(c){ return c.Estado !== 'cancelada'; });
-    state.blockedDays = (results[1] || []).map(function(b){ return b.Fecha || b.fecha || ''; }).filter(Boolean);
-    var horarios = results[2] || [];
+  fetchJSON(SHEETDB_URL + '?_action=all').then(function(data) {
+    // Si por algún motivo devuelve un array (versión vieja del script), fallback a 4 llamadas
+    if (Array.isArray(data)) {
+      return Promise.all([
+        fetchJSON(SHEETDB_URL+'?sheet=Citas'),
+        fetchJSON(SHEETDB_URL+'?sheet=Bloqueados'),
+        fetchJSON(SHEETDB_URL+'?sheet=Horarios'),
+        fetchJSON(SHEETDB_URL+'?sheet=DiasEspeciales')
+      ]).then(function(results) {
+        return { Citas: results[0], Bloqueados: results[1], Horarios: results[2], DiasEspeciales: results[3] };
+      });
+    }
+    return data;
+  }).then(function(data) {
+    state.bookedSlots = (data.Citas || []).filter(function(c){ return c.Estado !== 'cancelada'; });
+    state.blockedDays = (data.Bloqueados || []).map(function(b){ return b.Fecha || b.fecha || ''; }).filter(Boolean);
+    var horarios = data.Horarios || [];
     if (horarios.length > 0 && horarios[0].Config) {
       try {
         var customSchedule = JSON.parse(horarios[0].Config);
@@ -242,7 +253,7 @@ function loadData(cb) {
     }
     // Días especiales: fechas sueltas abiertas con horario propio
     state.diasEspeciales = {};
-    (results[3] || []).forEach(function(d){
+    (data.DiasEspeciales || []).forEach(function(d){
       if (d.Fecha && d.Horario) state.diasEspeciales[d.Fecha] = d.Horario;
     });
     showLoading(false);
@@ -309,6 +320,8 @@ function isSlotTaken(dateStr, timeStr, slotDur) {
   });
 }
 function isDayBlocked(dateStr) {
+  // Si está como día especial abierto, el bloqueo no cuenta
+  if (state.diasEspeciales && state.diasEspeciales[dateStr]) return false;
   return state.blockedDays.indexOf(dateStr) >= 0;
 }
 function isDayOpen(dow, dateStr){
@@ -536,10 +549,12 @@ function renderStep2() {
     var blocked=isDayBlocked(ds);
     var isPast=date<today;
     var unavail=isPast||date>maxD||!isDayOpen(date.getDay(),ds)||blocked;
+    var esEspecial = !!(state.diasEspeciales && state.diasEspeciales[ds]);
     var cls='cal-day';
     if (blocked) cls+=' blocked';
     else if (unavail) cls+=' past';
     else cls+=' available';
+    if (esEspecial && !unavail) cls+=' especial';
     if (date.getTime()===today.getTime()) cls+=' today';
     if (state.date===ds) cls+=' selected';
     cells+='<div class="'+cls+'"'+(!unavail?' data-date="'+ds+'"':'')+'>'+d+'</div>';
@@ -1005,8 +1020,8 @@ function checkWelcome() {
 
 render();
 checkWelcome();
-// Precalentar Google Script nada más cargar la página
-setTimeout(function(){ try { fetch(SHEETDB_URL+'?sheet=Citas').catch(function(){}); } catch(e){} }, 300);
+// Precalentar Google Script nada más cargar la página (1 llamada, no 4)
+setTimeout(function(){ try { fetch(SHEETDB_URL+'?_action=all').catch(function(){}); } catch(e){} }, 300);
 </script>
 </body>
 </html>

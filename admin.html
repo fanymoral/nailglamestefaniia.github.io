@@ -131,6 +131,14 @@
   /* AGENDA MEJORADA */
   .agenda-wrap { overflow-x: auto; }
   .agenda-table { display: grid; min-width: 600px; }
+  /* Pantalla completa agenda */
+  .agenda-fullscreen-btn { background: none; border: 1.5px solid var(--light-gray); border-radius: 8px; padding: 0.35rem 0.7rem; font-size: 0.75rem; cursor: pointer; color: var(--warm-gray); transition: all 0.2s; display: flex; align-items: center; gap: 0.3rem; }
+  .agenda-fullscreen-btn:hover { border-color: var(--rose); color: var(--rose); }
+  body.agenda-fs header, body.agenda-fs .container > .stats, body.agenda-fs .container > .tabs { display: none !important; }
+  body.agenda-fs .container { padding: 0 !important; max-width: 100% !important; }
+  body.agenda-fs .agenda-fs-wrap { position: fixed; inset: 0; z-index: 500; background: var(--cream); display: flex; flex-direction: column; overflow: hidden; }
+  body.agenda-fs .agenda-fs-inner { flex: 1; overflow-y: auto; overflow-x: auto; padding: 0.8rem 1rem 1rem; }
+  body.agenda-fs .agenda-fullscreen-btn { border-color: var(--rose); color: var(--rose); background: rgba(232,130,159,0.08); }
   .agenda-header { display: grid; grid-template-columns: 42px repeat(7, 1fr); border-bottom: 2px solid var(--light-gray); margin-bottom: 0; }
   .agenda-header-cell { text-align: center; padding: 0.5rem 0.3rem; }
   .agenda-header-day { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--warm-gray); }
@@ -1123,20 +1131,29 @@ function renderAgenda() {
     return sum+p;
   },0);
 
-  return '<div class="week-nav">'
+  var isFs = document.body.classList.contains('agenda-fs');
+  var fsBtn = '<button class="agenda-fullscreen-btn" id="agendaFsBtn">'+(isFs ? '✕ Salir pantalla completa' : '⛶ Pantalla completa')+'</button>';
+
+  var agendaInner = '<div class="week-nav">'
     +'<button class="nav-btn" id="prevWeek">&#8249;</button>'
     +'<div class="week-title">'+startStr+' &mdash; '+endStr+'</div>'
     +'<button class="nav-btn" id="nextWeek">&#8250;</button>'
     +'</div>'
-    +'<div style="display:flex;gap:1rem;margin-bottom:0.8rem;flex-wrap:wrap;">'
+    +'<div style="display:flex;gap:1rem;margin-bottom:0.8rem;flex-wrap:wrap;align-items:center;">'
     +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">📋 <strong>'+weekCitas.length+'</strong> citas esta semana</div>'
     +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">💰 <strong>'+Math.round(weekIncome)+'€</strong> ingresos estimados</div>'
+    +fsBtn
     +'</div>'
     +'<div class="agenda-wrap"><div class="agenda-table">'
     +'<div class="agenda-header">'+headerCells+'</div>'
     +'<div class="agenda-body" style="overflow-x:auto;">'+bodyRows+'</div>'
     +'</div></div>'
     +legendHtml;
+
+  if (isFs) {
+    return '<div class="agenda-fs-wrap"><div class="agenda-fs-inner">'+agendaInner+'</div></div>';
+  }
+  return agendaInner;
 }
 
 function renderLista() {
@@ -1407,6 +1424,13 @@ function bindEvents() {
   if (pw) pw.addEventListener('click', function(){ app.weekOffset--; render(); });
   var nw = document.getElementById('nextWeek');
   if (nw) nw.addEventListener('click', function(){ app.weekOffset++; render(); });
+
+  // Pantalla completa agenda
+  var fsBtn = document.getElementById('agendaFsBtn');
+  if (fsBtn) fsBtn.addEventListener('click', function(){
+    document.body.classList.toggle('agenda-fs');
+    render();
+  });
 
   // Drag & drop en agenda
   var dragId = null;

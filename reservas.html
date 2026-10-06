@@ -893,6 +893,9 @@ function confirmBooking() {
   // Evitar doble envío: si ya se está procesando, ignorar
   if (state.submitting) return;
   state.submitting = true;
+  // Deshabilitar el botón inmediatamente en el DOM (evita doble tap en móvil)
+  var btnConfirm = document.querySelector('.pay-modal .btn-primary');
+  if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = 'Procesando...'; }
   state.showPayModal = false;
 
   if (isSlotTaken(state.date,state.time)){

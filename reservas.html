@@ -562,26 +562,10 @@ function renderStep2() {
   var slotsHtml='';
   if (state.date) {
     var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0); var slots=getSlots(state.date,totalDur);
-    if (!slots.length) {
-      var wlForm = state.showWaitlist
-        ? '<div style="margin-top:1rem;background:var(--light-gray);border-radius:12px;padding:1.2rem;">'
-          +'<div style="font-family:Cormorant Garamond,serif;font-size:1.1rem;margin-bottom:0.8rem;">Apuntarme a lista de espera</div>'
-          +'<label class="form-label">Tu nombre</label>'
-          +'<input class="form-input" id="wlName" placeholder="Laura García" value="'+(state.waitlistName||'')+'" style="margin-bottom:0.8rem;">'
-          +'<label class="form-label">Tu teléfono (WhatsApp)</label>'
-          +'<input class="form-input" id="wlPhone" type="tel" placeholder="612 345 678" value="'+(state.waitlistPhone||'')+'" style="margin-bottom:0.8rem;">'
-          +'<label class="form-label">¿Qué días te vienen bien?</label>'
-          +'<input class="form-input" id="wlDias" placeholder="Ej: lunes y martes por la tarde" value="'+(state.waitlistDias||'')+'" style="margin-bottom:0.8rem;">'
-          +'<label class="form-label">¿A qué horas prefieres?</label>'
-          +'<input class="form-input" id="wlHoras" placeholder="Ej: a partir de las 17:00" value="'+(state.waitlistHoras||'')+'" style="margin-bottom:1rem;">'
-          +'<div style="display:flex;gap:0.6rem;">'
-          +'<button class="btn-primary" id="wlSubmitBtn" style="flex:1;">Apuntarme</button>'
-          +'<button class="btn-secondary" id="wlCancelBtn" style="width:auto;padding:0 1rem;">Cancelar</button>'
-          +'</div></div>'
-        : '<div style="margin-top:1rem;text-align:center;">'
-          +'<button class="btn-secondary" id="waitlistBtn" style="width:100%;">📋 Apuntarme a lista de espera</button>'
-          +'</div>';
-      slotsHtml='<div class="no-slots">No hay huecos disponibles este día.</div>'+wlForm;
+    var libres = slots.filter(function(s){ return !s.taken; });
+    if (!libres.length) {
+      // Día completo (o sin huecos): ofrecer lista de espera directamente
+      slotsHtml='<div class="no-slots">No hay huecos disponibles este día.</div>'+renderWaitlistBlock();
     } else {
       var sBtns=slots.map(function(s){
         if (s.taken) return '<button class="slot-btn taken" disabled>'+s.time+'<br><span style="font-size:0.65rem">Ocupado</span></button>';
@@ -590,12 +574,57 @@ function renderStep2() {
       slotsHtml='<div class="card-title" style="margin-top:1.5rem;font-size:1.1rem">Elige la hora</div><div class="slots-grid">'+sBtns+'</div>';
     }
   }
+  // Enlace siempre visible para apuntarse a la lista de espera (si no se muestra ya arriba)
+  if (!(state.date && slotsHtml.indexOf('no-slots') >= 0)) {
+    slotsHtml += '<div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--light-gray);">'
+      +'<p style="font-size:0.8rem;color:var(--warm-gray);text-align:center;margin-bottom:0.5rem;">¿No encuentras hueco cuando te viene bien?</p>'
+      +renderWaitlistBlock()
+      +'</div>';
+  }
   var bonoModalHtml = state.showBonoModal ? renderBonoModal() : '';
   return bonoModalHtml+'<div class="card"><div class="card-title">Elige tu fecha<small>Días disponibles según tu horario</small></div>'
     +'<div class="calendar-header"><button class="nav-btn" id="prevM">‹</button><div class="month-title">'+mNames[state.month]+' '+state.year+'</div><button class="nav-btn" id="nextM">›</button></div>'
     +'<div class="calendar-grid">'+dNames.map(function(n){return '<div class="cal-day-name">'+n+'</div>';}).join('')+cells+'</div>'
     +slotsHtml
     +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn2"'+((state.date&&state.time)?'':' disabled')+'>Continuar →</button><button class="btn-secondary" id="back2">← Volver</button></div></div>';
+}
+
+// Bloque de lista de espera. modo 'dia' = en el calendario; 'adelantar' = tras reservar, para adelantar la cita
+function renderWaitlistBlock(modo) {
+  modo = modo || 'dia';
+  if (state.waitlistDone) {
+    return '<div style="margin-top:0.8rem;background:#F0FFF5;border:1.5px solid #B8E6C8;border-radius:12px;padding:1rem;font-size:0.85rem;color:#2A7A4A;text-align:center;">'
+      +'✅ ¡Estás en la lista de espera! Te escribiré por WhatsApp en cuanto quede un hueco 💕</div>';
+  }
+  if (!state.showWaitlist) {
+    var txt = modo === 'adelantar' ? '⏩ Avísame si queda un hueco antes' : '📋 Apuntarme a lista de espera';
+    return '<button class="btn-secondary" id="waitlistBtn" style="width:100%;margin-top:0.5rem;">'+txt+'</button>';
+  }
+  var pedirDatos = modo !== 'adelantar'; // tras reservar ya tenemos nombre y teléfono
+  var fechaTxt = state.date ? formatDate(new Date(state.date+'T12:00:00')) : '';
+  var titulo = modo === 'adelantar'
+    ? 'Te aviso si queda un hueco antes de tu cita'
+    : 'Apuntarme a lista de espera';
+  var sub = modo === 'adelantar'
+    ? 'Tu cita del '+fechaTxt+' se mantiene. Si alguien cancela antes, te escribo por WhatsApp.'
+    : (state.date ? 'Día que buscabas: '+fechaTxt : 'Te escribo por WhatsApp si queda un hueco.');
+  return '<div style="margin-top:0.8rem;background:var(--light-gray);border-radius:12px;padding:1.2rem;text-align:left;">'
+    +'<div style="font-family:Cormorant Garamond,serif;font-size:1.15rem;margin-bottom:0.3rem;">'+titulo+'</div>'
+    +'<div style="font-size:0.78rem;color:var(--warm-gray);margin-bottom:0.9rem;line-height:1.5;">'+sub+'</div>'
+    +(pedirDatos
+      ? '<label class="form-label">Tu nombre</label>'
+        +'<input class="form-input" id="wlName" placeholder="Laura García" value="'+(state.waitlistName||state.name||'')+'" style="margin-bottom:0.8rem;">'
+        +'<label class="form-label">Tu teléfono (WhatsApp)</label>'
+        +'<input class="form-input" id="wlPhone" type="tel" placeholder="612 345 678" value="'+(state.waitlistPhone||state.phone||'')+'" style="margin-bottom:0.8rem;">'
+      : '')
+    +'<label class="form-label">¿Qué días te vienen bien? (opcional)</label>'
+    +'<input class="form-input" id="wlDias" placeholder="Ej: lunes y martes" value="'+(state.waitlistDias||'')+'" style="margin-bottom:0.8rem;">'
+    +'<label class="form-label">¿A qué horas prefieres? (opcional)</label>'
+    +'<input class="form-input" id="wlHoras" placeholder="Ej: a partir de las 17:00" value="'+(state.waitlistHoras||'')+'" style="margin-bottom:1rem;">'
+    +'<div style="display:flex;gap:0.6rem;">'
+    +'<button class="btn-primary" id="wlSubmitBtn" data-modo="'+modo+'" style="flex:1;">Apuntarme</button>'
+    +'<button class="btn-secondary" id="wlCancelBtn" style="width:auto;padding:0 1rem;margin-top:0;">Cancelar</button>'
+    +'</div></div>';
 }
 
 function renderStep3() {
@@ -681,6 +710,10 @@ function renderSuccess() {
     +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#856404;">⚠️ <strong>Importante:</strong> Pulsa el botón para enviarme tu reserva por WhatsApp. Sin este paso no podré confirmarla.</div>'
     +'<a href="https://wa.me/'+WHATSAPP+'?text='+msg+'" target="_blank" class="whatsapp-btn">Enviar por WhatsApp</a>'
     +'<div style="margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--light-gray);">'
+    +'<p style="font-size:0.8rem;color:var(--warm-gray);margin-bottom:0.3rem;">¿Te vendría mejor antes? ⏩</p>'
+    +renderWaitlistBlock('adelantar')
+    +'</div>'
+    +'<div style="margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--light-gray);">'
     +'<p style="font-size:0.8rem;color:var(--warm-gray);margin-bottom:0.6rem;">📷 ¡Comparte tu look en Instagram y etiquétanos!</p>'
     +'<a href="https://instagram.com/nailglam.estefania" target="_blank" class="ig-link">Síguenos @nailglam.estefania</a>'
     +'</div>'
@@ -764,7 +797,7 @@ function bind() {
   var nm=document.getElementById('nextM');
   if (nm) nm.addEventListener('click',function(){ if(state.month===11){state.month=0;state.year++;}else state.month++; render(); });
   document.querySelectorAll('.cal-day[data-date]').forEach(function(el){
-    el.addEventListener('click',function(){ state.date=el.dataset.date; state.time=null; render(); });
+    el.addEventListener('click',function(){ state.date=el.dataset.date; state.time=null; state.showWaitlist=false; render(); });
   });
   document.querySelectorAll('.slot-btn[data-time]').forEach(function(el){
     el.addEventListener('click',function(){ state.time=el.dataset.time; render(); });
@@ -779,19 +812,26 @@ function bind() {
   });
   var wlSubmitBtn = document.getElementById('wlSubmitBtn');
   if (wlSubmitBtn) wlSubmitBtn.addEventListener('click', function(){
-    var n = document.getElementById('wlName').value.trim();
-    var p = document.getElementById('wlPhone').value.trim();
+    var modo = wlSubmitBtn.dataset.modo || 'dia';
+    var nEl = document.getElementById('wlName'), pEl = document.getElementById('wlPhone');
+    var n = nEl ? nEl.value.trim() : state.name;
+    var p = pEl ? pEl.value.trim() : state.phone;
     var dias = document.getElementById('wlDias').value.trim();
     var horas = document.getElementById('wlHoras').value.trim();
     if (!n||!p){ alert('Por favor rellena tu nombre y teléfono.'); return; }
     state.waitlistName = n; state.waitlistPhone = p;
     state.waitlistDias = dias; state.waitlistHoras = horas;
     var svcNames = state.services.map(function(s){return s.name;}).join(' + ') || 'Sin especificar';
+    // Si quiere adelantar, lo marcamos al principio de "Días preferidos" para que se vea en el panel
+    if (modo === 'adelantar') {
+      var dd = state.date.split('-');
+      dias = '⏩ ADELANTAR cita del '+dd[2]+'/'+dd[1]+' a las '+state.time + (dias ? ' · '+dias : '');
+    }
     wlSubmitBtn.textContent = 'Guardando...'; wlSubmitBtn.disabled = true;
     var wlData = [{
       Nombre: n,
       'Teléfono': p,
-      Fecha: state.date,
+      Fecha: state.date || '',
       Servicio: svcNames,
       'Días preferidos': dias,
       'Horas preferidas': horas,
@@ -801,9 +841,8 @@ function bind() {
     fetch(SHEETDB_URL+'?_action=insert&sheet=ListaEspera&_data='+encodeURIComponent(wlEncoded))
     .then(function(){
       state.showWaitlist = false;
-      state.waitlistName = ''; state.waitlistPhone = '';
+      state.waitlistDone = true;
       state.waitlistDias = ''; state.waitlistHoras = '';
-      alert('✅ ¡Apuntada! Te avisaremos por WhatsApp en cuanto se libere un hueco 😊');
       render();
     }).catch(function(){
       wlSubmitBtn.textContent = 'Apuntarme';
@@ -881,6 +920,7 @@ function bind() {
     state.brokenNails=0; state.showBrokenModal=false; state.showBonoModal=false;
     state.bonoShown=false; state.showDecoModal=false; state.showPayModal=false;
     state.bookingId=null; state.submitting=false;
+    state.showWaitlist=false; state.waitlistDone=false;
     render();
   });
   var bc=document.getElementById('btnConfirm');
@@ -893,6 +933,7 @@ function confirmBooking() {
   // Evitar doble envío: si ya se está procesando, ignorar
   if (state.submitting) return;
   state.submitting = true;
+  state.showWaitlist = false; state.waitlistDone = false;
   // Deshabilitar el botón inmediatamente en el DOM (evita doble tap en móvil)
   var btnConfirm = document.querySelector('.pay-modal .btn-primary');
   if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = 'Procesando...'; }

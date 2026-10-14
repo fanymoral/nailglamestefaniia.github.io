@@ -730,10 +730,17 @@ function renderEspera() {
   if (!lista.length) {
     return '<div class="block-section"><div class="block-title">Lista de espera</div><div class="no-citas">No hay nadie en lista de espera.</div></div>';
   }
-  var items = lista.map(function(e, idx){
+  var items = lista.map(function(e){
+    // Índice real en app.listaEspera (la lista mostrada está ordenada)
+    var idx = app.listaEspera.indexOf(e);
     var tel = (e['Teléfono']||'').replace(/\D/g,'');
-    var msg = encodeURIComponent('Hola '+e.Nombre+'! Se ha liberado un hueco el '+e.Fecha+' para '+e.Servicio+'. Te viene bien? Escribeme para confirmarlo!');
-    return '<div class="cita-card">'
+    if (tel.length === 9) tel = '34' + tel; // WhatsApp necesita el prefijo de España
+    var adelantar = String(e['Días preferidos']||'').indexOf('ADELANTAR') >= 0;
+    var fechaBonita = e.Fecha ? e.Fecha.split('-').reverse().slice(0,2).join('/') : '';
+    var msg = encodeURIComponent(adelantar
+      ? 'Hola '+e.Nombre+'! Me ha quedado un hueco antes de tu cita del '+fechaBonita+'. Te gustaría adelantarla? Dime y te lo cambio 💅'
+      : 'Hola '+e.Nombre+'! Me ha quedado un hueco'+(fechaBonita?' el '+fechaBonita:'')+' para '+e.Servicio+'. Te viene bien? Escríbeme para confirmarlo 💅');
+    return '<div class="cita-card"'+(adelantar?' style="border-left:3px solid var(--rose);"':'')+'>'
       +'<div class="cita-fecha"><div class="cf-day">'+( e.Fecha?e.Fecha.split('-')[2]:'?')+'</div><div class="cf-mon">'+(e.Fecha?MONTH_SHORT[parseInt(e.Fecha.split('-')[1])-1]:'')+'</div></div>'
       +'<div class="cita-info">'
       +'<div class="cita-nombre">'+e.Nombre+'</div>'
@@ -750,7 +757,7 @@ function renderEspera() {
       +'</div>';
   }).join('');
   return '<div class="block-section">'
-    +'<div class="block-title">Lista de espera<br><small style="font-family:DM Sans,sans-serif;font-size:0.78rem;color:var(--warm-gray);font-weight:300">Clientas esperando un hueco. Pulsa "Avisar" cuando se libere uno.</small></div>'
+    +'<div class="block-title">Lista de espera<br><small style="font-family:DM Sans,sans-serif;font-size:0.78rem;color:var(--warm-gray);font-weight:300">Clientas esperando un hueco. Pulsa "Avisar" cuando quede uno.</small></div>'
     +'<div class="citas-list" style="margin-top:1rem;">'+items+'</div>'
     +'</div>';
 }

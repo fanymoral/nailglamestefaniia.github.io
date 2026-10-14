@@ -194,7 +194,7 @@ var state = {
 };
 
 // Fetch con reintento automático — Google Script a veces da error HTML en cold start
-function fetchJSON(url, intentos) {
+function fetchJSON(url, intentos, opts) {
   intentos = intentos || 3;
   return fetch(url).then(function(r) {
     return r.text().then(function(txt) {
@@ -202,12 +202,13 @@ function fetchJSON(url, intentos) {
         var data = JSON.parse(txt);
         // Si Apps Script devolvió un objeto de error, tratar como vacío
         if (data && data.error) return [];
+        if (opts && opts.allowObject && data && typeof data === 'object') return data;
         return Array.isArray(data) ? data : [];
       } catch(e) {
         // Respuesta no era JSON (HTML de error de Google) — reintentar
         if (intentos > 1) {
           return new Promise(function(res) {
-            setTimeout(function() { res(fetchJSON(url, intentos - 1)); }, 1500);
+            setTimeout(function() { res(fetchJSON(url, intentos - 1, opts)); }, 1500);
           });
         }
         return [];
@@ -216,7 +217,7 @@ function fetchJSON(url, intentos) {
   }).catch(function() {
     if (intentos > 1) {
       return new Promise(function(res) {
-        setTimeout(function() { res(fetchJSON(url, intentos - 1)); }, 1500);
+        setTimeout(function() { res(fetchJSON(url, intentos - 1, opts)); }, 1500);
       });
     }
     return [];
@@ -226,9 +227,9 @@ function fetchJSON(url, intentos) {
 // Cargar citas y días bloqueados desde Google Sheets (1 sola llamada)
 function loadData(cb) {
   if (!document.getElementById('loadingOverlay')) showLoading(true, 'Cargando disponibilidad...');
-  fetchJSON(SHEETDB_URL + '?_action=all').then(function(data) {
+  fetchJSON(SHEETDB_URL + '?_action=all', 3, {allowObject:true}).then(function(data) {
     // Si por algún motivo devuelve un array (versión vieja del script), fallback a 4 llamadas
-    if (Array.isArray(data)) {
+    if (Array.isArray(data) || !data.Citas) {
       return Promise.all([
         fetchJSON(SHEETDB_URL+'?sheet=Citas'),
         fetchJSON(SHEETDB_URL+'?sheet=Bloqueados'),
@@ -279,6 +280,14 @@ function showLoading(show, msg) {
 }
 
 function pad(n){ return String(n).padStart(2,'0'); }
+function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// Duración total real de la cita (incluye +15 min si hay más de 4 uñas rotas)
+function getTotalDur() {
+  var d = state.services.reduce(function(a,s){return a+s.duration;},0);
+  var hasBroken = state.services.some(function(s){ return s.id==='semi' || s.id==='gel'; });
+  if (hasBroken && state.brokenNails > 4) d += 15;
+  return d;
+}
 function formatDate(d) {
   var days=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   var months=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -330,7 +339,7 @@ function isDayOpen(dow, dateStr){
 }
 
 function isDayFull(dateStr) {
-  var slots = getSlots(dateStr, state.services.reduce(function(a,s){return a+s.duration;},0) || 30);
+  var slots = getSlots(dateStr, getTotalDur() || 30);
   return slots.length === 0;
 }
 function parseHorarioEspecial(horario) {
@@ -561,7 +570,7 @@ function renderStep2() {
   }
   var slotsHtml='';
   if (state.date) {
-    var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0); var slots=getSlots(state.date,totalDur);
+    var totalDur=getTotalDur(); var slots=getSlots(state.date,totalDur);
     var libres = slots.filter(function(s){ return !s.taken; });
     if (!libres.length) {
       // Día completo (o sin huecos): ofrecer lista de espera directamente
@@ -613,14 +622,14 @@ function renderWaitlistBlock(modo) {
     +'<div style="font-size:0.78rem;color:var(--warm-gray);margin-bottom:0.9rem;line-height:1.5;">'+sub+'</div>'
     +(pedirDatos
       ? '<label class="form-label">Tu nombre</label>'
-        +'<input class="form-input" id="wlName" placeholder="Laura García" value="'+(state.waitlistName||state.name||'')+'" style="margin-bottom:0.8rem;">'
+        +'<input class="form-input" id="wlName" placeholder="Laura García" value="'+esc(state.waitlistName||state.name||'')+'" style="margin-bottom:0.8rem;">'
         +'<label class="form-label">Tu teléfono (WhatsApp)</label>'
-        +'<input class="form-input" id="wlPhone" type="tel" placeholder="612 345 678" value="'+(state.waitlistPhone||state.phone||'')+'" style="margin-bottom:0.8rem;">'
+        +'<input class="form-input" id="wlPhone" type="tel" placeholder="612 345 678" value="'+esc(state.waitlistPhone||state.phone||'')+'" style="margin-bottom:0.8rem;">'
       : '')
     +'<label class="form-label">¿Qué días te vienen bien? (opcional)</label>'
-    +'<input class="form-input" id="wlDias" placeholder="Ej: lunes y martes" value="'+(state.waitlistDias||'')+'" style="margin-bottom:0.8rem;">'
+    +'<input class="form-input" id="wlDias" placeholder="Ej: lunes y martes" value="'+esc(state.waitlistDias)+'" style="margin-bottom:0.8rem;">'
     +'<label class="form-label">¿A qué horas prefieres? (opcional)</label>'
-    +'<input class="form-input" id="wlHoras" placeholder="Ej: a partir de las 17:00" value="'+(state.waitlistHoras||'')+'" style="margin-bottom:1rem;">'
+    +'<input class="form-input" id="wlHoras" placeholder="Ej: a partir de las 17:00" value="'+esc(state.waitlistHoras)+'" style="margin-bottom:1rem;">'
     +'<div style="display:flex;gap:0.6rem;">'
     +'<button class="btn-primary" id="wlSubmitBtn" data-modo="'+modo+'" style="flex:1;">Apuntarme</button>'
     +'<button class="btn-secondary" id="wlCancelBtn" style="width:auto;padding:0 1rem;margin-top:0;">Cancelar</button>'
@@ -629,13 +638,13 @@ function renderWaitlistBlock(modo) {
 
 function renderStep3() {
   return '<div class="card"><div class="card-title">Tus datos<small>Para confirmar y recordarte la cita</small></div>'
-    +'<div class="form-row"><label class="form-label">Nombre y apellidos *</label><input class="form-input" id="iName" type="text" placeholder="Ej: Laura García" value="'+state.name+'" maxlength="60"></div>'
-    +'<div class="form-row"><label class="form-label">Teléfono (WhatsApp) *</label><input class="form-input" id="iPhone" type="tel" placeholder="Ej: 612 345 678" value="'+state.phone+'" maxlength="20"></div>'
+    +'<div class="form-row"><label class="form-label">Nombre y apellidos *</label><input class="form-input" id="iName" type="text" placeholder="Ej: Laura García" value="'+esc(state.name)+'" maxlength="60"></div>'
+    +'<div class="form-row"><label class="form-label">Teléfono (WhatsApp) *</label><input class="form-input" id="iPhone" type="tel" placeholder="Ej: 612 345 678" value="'+esc(state.phone)+'" maxlength="20"></div>'
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iFirstTime" '+(state.firstTime?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> ✨ Es mi primera vez contigo</label></div>'
 
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iHasBono" '+(state.hasBono?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> 🎟️ Tengo un bono</label></div>'
     +(state.hasBono?'<div class="form-row"><label class="form-label">¿Qué tipo de bono?</label><select class="form-input" id="iBonoType"><option value="">Selecciona...</option><option value="Bono 3 Semipermanentes" '+(state.bonoType==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(state.bonoType==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(state.bonoType==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(state.bonoType==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (78€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(state.bonoType==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(state.bonoType==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>':'')
-    +'<div class="form-row"><label class="form-label">¿Algo que deba saber? (opcional)</label><textarea class="form-input" id="iNotes" placeholder="Alergias, preferencias de color...">'+state.notes+'</textarea></div>'
+    +'<div class="form-row"><label class="form-label">¿Algo que deba saber? (opcional)</label><textarea class="form-input" id="iNotes" placeholder="Alergias, preferencias de color...">'+esc(state.notes)+'</textarea></div>'
     +'<div class="info-banner"><strong>📋 Política de cancelación:</strong> Si necesitas cancelar o cambiar tu cita, avísame con al menos <strong>24 horas de antelación</strong> por WhatsApp. Las inasistencias repetidas sin aviso pueden afectar a futuras reservas. ¡Gracias por tu comprensión! 💕</div>'
     +'<div class="info-banner" style="margin-top:0.6rem"><strong>⏰ Puntualidad:</strong> Si llegas con más de 15 minutos de retraso, puede que tengamos que reprogramar tu cita para no afectar a otras clientas.</div>'
     +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.8rem 1rem;margin-top:0.6rem;font-size:0.85rem;color:#856404;text-align:center;"><strong>💵 Pago en efectivo hasta el 1 de enero de 2027</strong></div>'
@@ -647,13 +656,12 @@ function renderStep3() {
 function renderStep4() {
   var d=new Date(state.date+'T12:00:00');
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
-  var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
+  var totalDur=getTotalDur();
   var totalPrice=state.services.reduce(function(sum,s){
     var n = parseFloat((s.price.match(/[\d.,]+/)||['0'])[0].replace(',','.'));
     return sum+n;
   },0) + (state.brokenNails || 0);
   var bnExtra = state.brokenNails > 0 ? state.brokenNails+'€ extra ('+state.brokenNails+' uña(s) rota(s))' : '';
-  if (state.brokenNails > 4) totalDur += 15;
   var totalPriceDisplay;
   if (state.hasBono && state.bonoType) {
     var bonoFound = BONOS.find(function(b){ return b.name === state.bonoType; });
@@ -684,11 +692,11 @@ function renderStep4() {
   } else {
     totalPriceDisplay = Math.round(totalPrice)+'€';
   }
-  var rows=[['Servicios',svcNames],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',state.name],['Teléfono',state.phone]];
+  var rows=[['Servicios',svcNames],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',esc(state.name)],['Teléfono',esc(state.phone)]];
   if (bnExtra) rows.push(['Uñas rotas', bnExtra]);
   if (state.hasBono) rows.push(['Bono','🎟️ '+state.bonoType]);
   if (state.firstTime) rows.push(['Primera vez','✨ Sí']);
-  if (state.notes) rows.push(['Notas',state.notes]);
+  if (state.notes) rows.push(['Notas',esc(state.notes)]);
   var payModalHtml = state.showPayModal ? renderPayModal() : '';
   return payModalHtml+'<div class="card"><div class="card-title">Confirmar cita<small>Revisa los detalles antes de reservar</small></div>'
     +'<div class="summary-block">'+rows.map(function(r){return '<div class="summary-row"><span class="sum-label">'+r[0]+'</span><span class="sum-value">'+r[1]+'</span></div>';}).join('')+'</div>'
@@ -702,11 +710,13 @@ function renderStep4() {
 function renderSuccess() {
   var d=new Date(state.date+'T12:00:00');
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
+  var endM=timeToMins(state.time)+(getTotalDur()||30);
+  var dtEnd=state.date.replace(/-/g,'')+'T'+pad(Math.floor(endM/60))+pad(endM%60)+'00';
   var msg=encodeURIComponent('Hola! Acabo de reservar una cita.\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType:'')+(state.notes?'\nNotas: '+state.notes:'')+'\n\nNos vemos pronto!');
   var welcomeMsg = state.firstTime ? '<p style="font-size:0.85rem;color:var(--rose);margin-bottom:0.8rem;">✨ ¡Qué ilusión tenerte por primera vez! Te voy a cuidar muy bien 💕</p>' : '';
   return '<div class="card success-screen"><div class="success-icon">✓</div><div class="success-title">¡Reserva confirmada!</div>'
     +welcomeMsg
-    +'<p class="success-sub">Tu cita ha quedado reservada para el<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br><br>¡Estoy de vuelta la última semana de octubre! 🌸<br><span style="font-size:0.8rem;color:var(--warm-gray);">Según la demanda iré abriendo más horarios, así que si no encuentras hueco estate atenta 💕</span></p>'
+    +'<p class="success-sub">Tu cita ha quedado reservada para el<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br><br>'+(new Date() < new Date(2026,10,1) ? '¡Estoy de vuelta la última semana de octubre! 🌸<br>' : '')+'<span style="font-size:0.8rem;color:var(--warm-gray);">Según la demanda iré abriendo más horarios, así que si no encuentras hueco estate atenta 💕</span></p>'
     +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#856404;">⚠️ <strong>Importante:</strong> Pulsa el botón para enviarme tu reserva por WhatsApp. Sin este paso no podré confirmarla.</div>'
     +'<a href="https://wa.me/'+WHATSAPP+'?text='+msg+'" target="_blank" class="whatsapp-btn">Enviar por WhatsApp</a>'
     +'<div style="margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--light-gray);">'
@@ -718,7 +728,7 @@ function renderSuccess() {
     +'<a href="https://instagram.com/nailglam.estefania" target="_blank" class="ig-link">Síguenos @nailglam.estefania</a>'
     +'</div>'
     +'<div style="margin-top:0.8rem;">'
-    +'<a href="data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART:'+state.date.replace(/-/g,'')+'T'+state.time.replace(':','')+'00%0ASUMMARY:Nail+Glam+Estefania+-+'+encodeURIComponent(svcNames)+'%0AEND:VEVENT%0AEND:VCALENDAR" download="cita-nail-glam.ics" style="display:block;text-align:center;padding:0.7rem;background:var(--light-gray);border-radius:10px;text-decoration:none;color:var(--espresso);font-size:0.82rem;">📅 Guardar en mi calendario</a>'
+    +'<a href="data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART:'+state.date.replace(/-/g,'')+'T'+state.time.replace(':','')+'00%0ADTEND:'+dtEnd+'%0ASUMMARY:Nail+Glam+Estefania+-+'+encodeURIComponent(svcNames)+'%0AEND:VEVENT%0AEND:VCALENDAR" download="cita-nail-glam.ics" style="display:block;text-align:center;padding:0.7rem;background:var(--light-gray);border-radius:10px;text-decoration:none;color:var(--espresso);font-size:0.82rem;">📅 Guardar en mi calendario</a>'
     +'</div>'
     +'<button class="btn-secondary" id="btnNew" style="margin-top:0.8rem">Hacer otra reserva</button>'
     +'</div>';
@@ -759,6 +769,7 @@ function bind() {
           state.showDecoModal = true;
         }
       }
+      if (!state.services.some(function(s){ return s.id==='semi' || s.id==='gel'; })) state.brokenNails = 0;
       state.date=null; state.time=null;
       render();
     });
@@ -939,17 +950,23 @@ function confirmBooking() {
   if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = 'Procesando...'; }
   state.showPayModal = false;
 
-  if (isSlotTaken(state.date,state.time)){
+  // Volver a cargar las citas justo antes de guardar: otra clienta puede haber reservado mientras tanto
+  showLoading(true, 'Comprobando disponibilidad...');
+  loadData(function(){ guardarCita(); });
+}
+
+function guardarCita() {
+  var totalDur=getTotalDur();
+  if (isSlotTaken(state.date,state.time,totalDur||30)){
     state.submitting = false;
     alert('¡Vaya! Alguien acaba de reservar ese horario. Por favor elige otro.');
     state.time=null; state.step=2; render(); return;
   }
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
   var svcPrices=state.services.map(function(s){return s.price;}).join(' + ');
-  var totalDur=state.services.reduce(function(a,s){return a+s.duration;},0);
-  if (state.brokenNails > 4) totalDur += 15;
 
   // Show loading with message
+  showLoading(false);
   showLoading(true, 'Guardando tu cita...<br><span style="font-size:0.75rem;opacity:0.7">Puede tardar unos segundos</span>');
 
   // El ID se fija una sola vez por reserva (no cambia si hay reintentos)
@@ -1042,7 +1059,7 @@ function renderWelcomeModal() {
     +'<strong>3.</strong> Rellena tus datos y confirma<br><br>'
     +'¡Te espero con muchas ganas! 💕'
     +'</div>'
-    +'<button class="btn-primary" onclick="document.getElementById(\'welcomeModalBg\').remove();">Empezar a reservar</button>'
+    +'<button class="btn-primary" id="closeWelcomeBtn">Empezar a reservar</button>'
     +'<a href="https://instagram.com/nailglam.estefania" target="_blank" class="ig-link" style="margin-top:0.8rem;">📷 Sígueme en Instagram</a>'
     +'<p style="margin-top:0.8rem;font-size:0.88rem;color:var(--warm-gray);text-align:center;">¿Tienes una cita y necesitas cancelarla? <a href="cancelar.html" style="color:var(--rose);text-decoration:none;font-weight:500;">Cancela aquí</a></p>'
     +'</div></div></div>';
@@ -1055,7 +1072,7 @@ function checkWelcome() {
       div.innerHTML = renderWelcomeModal();
       document.body.appendChild(div.firstChild);
       document.getElementById('closeWelcomeBtn').addEventListener('click', function(){
-        localStorage.setItem('nailglam_visited', '1');
+        try { localStorage.setItem('nailglam_visited', '1'); } catch(e) {}
         document.getElementById('welcomeModalBg').remove();
       });
     }

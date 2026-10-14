@@ -292,11 +292,13 @@ var app = {
 
 function switchTab(t){ app.tab=t; render(); }
 function pad(n){ return String(n).padStart(2,'0'); }
+// Escapar texto que viene de la hoja (lo escriben las clientas) antes de meterlo en el HTML
+function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function fmtDate(ds) {
   if (!ds || typeof ds !== 'string') return ds || '';
   // Solo aceptar formato YYYY-MM-DD (con o sin sufijo _AM/_PM)
   var clean = ds.replace(/_AM$|_PM$/,'');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) return ds; // devolver tal cual si formato raro
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) return esc(ds); // devolver tal cual si formato raro
   var d=new Date(clean+'T12:00:00');
   if (isNaN(d.getTime())) return ds;
   return DAY_NAMES[d.getDay()]+' '+d.getDate()+' '+MONTH_SHORT[d.getMonth()];
@@ -549,15 +551,15 @@ function renderClientas() {
   if (app.clientaEditing !== null) {
     var ec = app.clientaEditing;
     formHtml = '<div class="clienta-form">'
-      +'<div class="clienta-form-title">'+(ec.isNew?'Nueva clienta':'Editar: '+ec.Nombre)+'</div>'
-      +'<div class="form-row"><label class="form-label">Nombre *</label><input class="form-input" id="cfNombre" value="'+(ec.Nombre||'')+'" placeholder="Nombre completo"></div>'
-      +'<div class="form-row"><label class="form-label">Teléfono</label><input class="form-input" id="cfTel" value="'+(ec['Teléfono']||'')+'" placeholder="612 345 678"></div>'
-      +'<div class="form-row"><label class="form-label">Producto que le va bien</label><input class="form-input" id="cfProducto" value="'+(ec.Producto||'')+'" placeholder="Ej: Base rubber rosa, top coat mate..."></div>'
-      +'<div class="form-row"><label class="form-label">Alergias o sensibilidades</label><input class="form-input" id="cfAlergias" value="'+(ec.Alergias||'')+'" placeholder="Ej: Alérgica al metacrilato..."></div>'
-      +'<div class="form-row"><label class="form-label">Notas personales</label><textarea class="form-input" id="cfNotas" placeholder="Cualquier cosa que debas recordar...">'+(ec.Notas||'')+'</textarea></div>'
-      +'<div class="form-row"><label class="form-label">Cumpleaños</label><input class="form-input" id="cfCumple" type="text" placeholder="Ej: 15/03" value="'+(ec['Cumpleaños']||'')+'" maxlength="5"></div>'
-      +'<div class="form-row"><label class="form-label">Observaciones (solo para ti)</label><textarea class="form-input" id="cfObs" placeholder="Productos que le van bien, preferencias, detalles del servicio...">'+(ec.Observaciones||'')+'</textarea></div>'
-      +'<div class="form-row"><label class="form-label">Bono activo</label><select class="form-input" id="cfBono"><option value="">Sin bono</option><option value="Bono 3 Semipermanentes" '+(ec.Bono==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(ec.Bono==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(ec.Bono==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(ec.Bono==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (75€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(ec.Bono==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(ec.Bono==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>'
+      +'<div class="clienta-form-title">'+(ec.isNew?'Nueva clienta':'Editar: '+esc(ec.Nombre))+'</div>'
+      +'<div class="form-row"><label class="form-label">Nombre *</label><input class="form-input" id="cfNombre" value="'+esc(ec.Nombre||'')+'" placeholder="Nombre completo"></div>'
+      +'<div class="form-row"><label class="form-label">Teléfono</label><input class="form-input" id="cfTel" value="'+esc(ec['Teléfono']||'')+'" placeholder="612 345 678"></div>'
+      +'<div class="form-row"><label class="form-label">Producto que le va bien</label><input class="form-input" id="cfProducto" value="'+esc(ec.Producto||'')+'" placeholder="Ej: Base rubber rosa, top coat mate..."></div>'
+      +'<div class="form-row"><label class="form-label">Alergias o sensibilidades</label><input class="form-input" id="cfAlergias" value="'+esc(ec.Alergias||'')+'" placeholder="Ej: Alérgica al metacrilato..."></div>'
+      +'<div class="form-row"><label class="form-label">Notas personales</label><textarea class="form-input" id="cfNotas" placeholder="Cualquier cosa que debas recordar...">'+esc(ec.Notas||'')+'</textarea></div>'
+      +'<div class="form-row"><label class="form-label">Cumpleaños</label><input class="form-input" id="cfCumple" type="text" placeholder="Ej: 15/03" value="'+esc(ec['Cumpleaños']||'')+'" maxlength="5"></div>'
+      +'<div class="form-row"><label class="form-label">Observaciones (solo para ti)</label><textarea class="form-input" id="cfObs" placeholder="Productos que le van bien, preferencias, detalles del servicio...">'+esc(ec.Observaciones||'')+'</textarea></div>'
+      +'<div class="form-row"><label class="form-label">Bono activo</label><select class="form-input" id="cfBono"><option value="">Sin bono</option><option value="Bono 3 Semipermanentes" '+(ec.Bono==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(ec.Bono==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(ec.Bono==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(ec.Bono==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (78€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(ec.Bono==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(ec.Bono==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>'
       +'<div class="form-row"><label class="form-label">Sesiones restantes del bono</label><input class="form-input" id="cfBonoSesiones" type="number" min="0" max="3" value="'+(ec.BonoSesiones||3)+'" placeholder="3"></div>'
       +'<div style="display:flex;gap:0.8rem;margin-top:0.5rem">'
       +'<button class="btn-primary" id="saveClientaBtn" style="flex:1">Guardar ficha</button>'
@@ -575,17 +577,17 @@ function renderClientas() {
         return (cita.Nombre||'').toLowerCase() === (cNombre||'').toLowerCase() && cita.Estado !== 'cancelada';
       }).sort(function(a,b){ return a.Fecha>b.Fecha?-1:1; }).slice(0,3);
       var histHtml = historial.length
-        ? historial.map(function(h){ return '<div class="clienta-cita">'+h.Fecha+' · '+h.Hora+' · '+h.Servicio+'</div>'; }).join('')
+        ? historial.map(function(h){ return '<div class="clienta-cita">'+esc(h.Fecha)+' · '+esc(h.Hora)+' · '+esc(h.Servicio)+'</div>'; }).join('')
         : '<div style="font-size:0.72rem;color:#CCC">Sin citas registradas</div>';
       return '<div class="clienta-card">'
-        +'<div class="clienta-name">'+(cNombre||'Sin nombre')+'</div>'
-        +'<div class="clienta-tel">📱 '+(c['Teléfono']||'—')+'</div>'
-        +(c.Producto?'<div class="clienta-field"><div class="clienta-field-label">Producto</div><div class="clienta-field-val">'+c.Producto+'</div></div>':'')
-        +(c.Alergias?'<div class="clienta-field"><div class="clienta-field-label">Alergias</div><div class="clienta-field-val">'+c.Alergias+'</div></div>':'')
-        +(c.Bono?'<div class="clienta-field"><div class="clienta-field-label">🎟️ Bono activo</div><div class="clienta-field-val">'+c.Bono+' · '+(c.BonoSesiones||'?')+' sesión(es) restante(s)<br><span style="font-size:0.7rem;color:var(--warm-gray)">Validez: 4 meses desde la compra</span></div></div>':'')
-        +(c['Cumpleaños']?'<div class="clienta-field"><div class="clienta-field-label">🎂 Cumpleaños</div><div class="clienta-field-val">'+c['Cumpleaños']+'</div></div>':'')
-        +(c.Observaciones?'<div class="clienta-field"><div class="clienta-field-label">📝 Observaciones</div><div class="clienta-field-val">'+c.Observaciones+'</div></div>':'')
-        +(c.Notas?'<div class="clienta-field"><div class="clienta-field-label">Notas</div><div class="clienta-field-val">'+c.Notas+'</div></div>':'')
+        +'<div class="clienta-name">'+esc(cNombre||'Sin nombre')+'</div>'
+        +'<div class="clienta-tel">📱 '+esc(c['Teléfono']||'—')+'</div>'
+        +(c.Producto?'<div class="clienta-field"><div class="clienta-field-label">Producto</div><div class="clienta-field-val">'+esc(c.Producto)+'</div></div>':'')
+        +(c.Alergias?'<div class="clienta-field"><div class="clienta-field-label">Alergias</div><div class="clienta-field-val">'+esc(c.Alergias)+'</div></div>':'')
+        +(c.Bono?'<div class="clienta-field"><div class="clienta-field-label">🎟️ Bono activo</div><div class="clienta-field-val">'+esc(c.Bono)+' · '+esc(c.BonoSesiones||'?')+' sesión(es) restante(s)<br><span style="font-size:0.7rem;color:var(--warm-gray)">Validez: 4 meses desde la compra</span></div></div>':'')
+        +(c['Cumpleaños']?'<div class="clienta-field"><div class="clienta-field-label">🎂 Cumpleaños</div><div class="clienta-field-val">'+esc(c['Cumpleaños'])+'</div></div>':'')
+        +(c.Observaciones?'<div class="clienta-field"><div class="clienta-field-label">📝 Observaciones</div><div class="clienta-field-val">'+esc(c.Observaciones)+'</div></div>':'')
+        +(c.Notas?'<div class="clienta-field"><div class="clienta-field-label">Notas</div><div class="clienta-field-val">'+esc(c.Notas)+'</div></div>':'')
         +'<div class="clienta-historial"><div class="clienta-historial-title">Últimas citas</div>'+histHtml+'</div>'
         +'<div class="clienta-actions"><button class="btn-edit" data-editidx="'+idx+'">✏️ Editar</button>'
         +'<a href="https://wa.me/'+(c['Teléfono']||'').replace(/\D/g,'')+'" target="_blank" class="btn-wa">WA</a>'
@@ -596,7 +598,7 @@ function renderClientas() {
   return '<div class="block-section">'
     +'<div class="block-title">Fichas de clientas<br><small style="font-family:DM Sans;font-size:0.78rem;color:var(--warm-gray);font-weight:300">Guarda el producto que le va bien a cada clienta y sus notas</small></div>'
     +'<button class="btn-new-clienta" id="newClientaBtn">+ Nueva clienta</button>'
-    +'<input class="clienta-search" id="clientaSearchInput" placeholder="🔍 Buscar clienta por nombre o teléfono..." value="'+app.clientaSearch+'">'
+    +'<input class="clienta-search" id="clientaSearchInput" placeholder="🔍 Buscar clienta por nombre o teléfono..." value="'+esc(app.clientaSearch)+'">'
     +formHtml
     +cards
     +'</div>';
@@ -699,13 +701,13 @@ function renderBonos() {
     return '<div class="cita-card" style="display:block;'+(agotado?'opacity:0.7;':'')+'">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">'
       +'<div>'
-      +'<div class="cita-nombre">'+(nombre||'Sin nombre')+(agotado?' <span style="font-size:0.7rem;color:var(--warm-gray);font-weight:400;">· Bono agotado</span>':'')+'</div>'
-      +'<div class="cita-tel" style="margin-top:0.15rem;">🎟️ '+bonoTipo+'</div>'
-      +(tel?'<div class="cita-tel">📱 '+(c['Teléfono']||c.Telefono||'')+'</div>':'')
+      +'<div class="cita-nombre">'+esc(nombre||'Sin nombre')+(agotado?' <span style="font-size:0.7rem;color:var(--warm-gray);font-weight:400;">· Bono agotado</span>':'')+'</div>'
+      +'<div class="cita-tel" style="margin-top:0.15rem;">🎟️ '+esc(bonoTipo)+'</div>'
+      +(tel?'<div class="cita-tel">📱 '+esc(c['Teléfono']||c.Telefono||'')+'</div>':'')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">'
       +(tel?'<a href="https://wa.me/'+tel+'" target="_blank" class="btn-wa" style="font-size:0.75rem;">WhatsApp</a>':'')
-      +(agotado?'<button class="btn-primary" data-renovar="'+nombre+'" style="font-size:0.75rem;padding:0.4rem 0.8rem;background:var(--rose);">🔄 Renovar bono</button>':'')
+      +(agotado?'<button class="btn-primary" data-renovar="'+esc(nombre)+'" style="font-size:0.75rem;padding:0.4rem 0.8rem;background:var(--rose);">🔄 Renovar bono</button>':'')
       +'</div>'
       +'</div>'
       +'<div style="margin-top:0.9rem;display:flex;align-items:center;gap:0.3rem;">'
@@ -741,14 +743,14 @@ function renderEspera() {
       ? 'Hola '+e.Nombre+'! Me ha quedado un hueco antes de tu cita del '+fechaBonita+'. Te gustaría adelantarla? Dime y te lo cambio 💅'
       : 'Hola '+e.Nombre+'! Me ha quedado un hueco'+(fechaBonita?' el '+fechaBonita:'')+' para '+e.Servicio+'. Te viene bien? Escríbeme para confirmarlo 💅');
     return '<div class="cita-card"'+(adelantar?' style="border-left:3px solid var(--rose);"':'')+'>'
-      +'<div class="cita-fecha"><div class="cf-day">'+( e.Fecha?e.Fecha.split('-')[2]:'?')+'</div><div class="cf-mon">'+(e.Fecha?MONTH_SHORT[parseInt(e.Fecha.split('-')[1])-1]:'')+'</div></div>'
+      +'<div class="cita-fecha"><div class="cf-day">'+esc( e.Fecha?e.Fecha.split('-')[2]:'?')+'</div><div class="cf-mon">'+(e.Fecha?MONTH_SHORT[parseInt(e.Fecha.split('-')[1])-1]:'')+'</div></div>'
       +'<div class="cita-info">'
-      +'<div class="cita-nombre">'+e.Nombre+'</div>'
-      +'<div class="cita-servicio">'+e.Servicio+'</div>'
-      +'<div class="cita-tel">📱 '+e['Teléfono']+'</div>'
-      +(e['Días preferidos']?'<div class="cita-tel" style="color:var(--rose);">📅 '+e['Días preferidos']+'</div>':'')
-      +(e['Horas preferidas']?'<div class="cita-tel" style="color:var(--rose);">🕐 '+e['Horas preferidas']+'</div>':'')
-      +'<div class="cita-tel" style="font-size:0.7rem;color:#CCC">Añadida: '+(e['Añadida el']||'')+'</div>'
+      +'<div class="cita-nombre">'+esc(e.Nombre)+'</div>'
+      +'<div class="cita-servicio">'+esc(e.Servicio)+'</div>'
+      +'<div class="cita-tel">📱 '+esc(e['Teléfono'])+'</div>'
+      +(e['Días preferidos']?'<div class="cita-tel" style="color:var(--rose);">📅 '+esc(e['Días preferidos'])+'</div>':'')
+      +(e['Horas preferidas']?'<div class="cita-tel" style="color:var(--rose);">🕐 '+esc(e['Horas preferidas'])+'</div>':'')
+      +'<div class="cita-tel" style="font-size:0.7rem;color:#CCC">Añadida: '+esc(e['Añadida el']||'')+'</div>'
       +'</div>'
       +'<div class="cita-actions">'
       +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa">Avisar</a>'
@@ -845,7 +847,7 @@ function renderStats() {
         var pct = (e[1]/maxCount)*100;
         var color = colors[idx % colors.length];
         return '<div class="stats-bar-row">'
-          +'<div class="stats-bar-label">'+e[0]+'</div>'
+          +'<div class="stats-bar-label">'+esc(e[0])+'</div>'
           +'<div class="stats-bar-track"><div class="stats-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
           +'<div class="stats-bar-value">'+e[1]+'x</div>'
           +'</div>';
@@ -907,6 +909,8 @@ function renderAdmin() {
     inner = renderEspera();
   } else if (app.tab==='bonos') {
     inner = renderBonos();
+  } else if (app.tab==='lista') {
+    inner = renderLista();
   } else {
     inner = renderBloquear();
   }
@@ -934,7 +938,7 @@ function renderAdmin() {
       var tel = (c['Teléfono']||'').replace(/[^0-9]/g,'');
       var msg = encodeURIComponent('Hola '+c.Nombre+'! Desde Nail Glam Estefania te deseamos un feliz cumpleanos! Que pases un dia genial. Un besazo!');
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--light-gray);">'
-        +'<div><strong>'+c.Nombre+'</strong> — el '+c['Cumpleaños']+'</div>'
+        +'<div><strong>'+esc(c.Nombre)+'</strong> — el '+esc(c['Cumpleaños'])+'</div>'
         +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa" style="font-size:0.72rem;">Felicitar</a>'
         +'</div>';
     }).join('');
@@ -1104,10 +1108,10 @@ function renderAgenda() {
         var durLabel = durMin >= 60
           ? (durMin % 60 === 0 ? (durMin/60)+'h' : Math.floor(durMin/60)+'h '+( durMin%60)+'min')
           : durMin+'min';
-        return '<div class="agenda-appt '+svcCls+'" data-cid="'+c.ID+'" draggable="true" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;'+extraStyle+'">'
-          +'<div class="aa-time">'+c.Hora+(hasBono?' 🎟️':'')+'<span class="aa-dur"> · '+durLabel+'</span></div>'
-          +'<div class="aa-name">'+c.Nombre+'</div>'
-          +'<div class="aa-service">'+c.Servicio+'</div>'
+        return '<div class="agenda-appt '+svcCls+'" data-cid="'+esc(c.ID)+'" draggable="true" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;'+extraStyle+'">'
+          +'<div class="aa-time">'+esc(c.Hora)+(hasBono?' 🎟️':'')+'<span class="aa-dur"> · '+durLabel+'</span></div>'
+          +'<div class="aa-name">'+esc(c.Nombre)+'</div>'
+          +'<div class="aa-service">'+esc(c.Servicio)+'</div>'
           +'</div>';
       }).join('');
 
@@ -1182,8 +1186,8 @@ function renderLista() {
       var msg = encodeURIComponent('Hola '+c.Nombre+'! Te recuerdo tu cita '+mensajeDia+' a las '+c.Hora+' para '+c.Servicio+'. Te espero! Si necesitas cancelar avisame con antelacion.');
       var tel = (c['Teléfono']||c.Telefono||'').replace(/\D/g,'');
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--light-gray);">'
-        +'<div><div style="font-weight:500;font-size:0.88rem">'+c.Nombre+'</div>'
-        +'<div style="font-size:0.75rem;color:var(--warm-gray)">'+c.Hora+' · '+c.Servicio+'</div></div>'
+        +'<div><div style="font-weight:500;font-size:0.88rem">'+esc(c.Nombre)+'</div>'
+        +'<div style="font-size:0.75rem;color:var(--warm-gray)">'+esc(c.Hora)+' · '+esc(c.Servicio)+'</div></div>'
         +'<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa">Enviar</a>'
         +'</div>';
     }).join('');
@@ -1211,24 +1215,26 @@ function renderLista() {
   }) : allCitas;
   var filterHtml = '<div style="margin-bottom:1rem;">'
     +'<input style="width:100%;border:1.5px solid var(--light-gray);border-radius:10px;padding:0.7rem 1rem;font-family:DM Sans,sans-serif;font-size:0.88rem;outline:none;background:var(--cream);" '
-    +'id="citaFilterInput" placeholder="🔍 Buscar por nombre, servicio, fecha o teléfono..." value="'+(app.citaFilter||'')+'">'
+    +'id="citaFilterInput" placeholder="🔍 Buscar por nombre, servicio, fecha o teléfono..." value="'+esc(app.citaFilter||'')+'">'
     +'</div>';
   if (!sorted.length) return recordHtml+filterHtml+'<div class="no-citas">No se encontraron citas.</div>';
   var items = sorted.map(function(c){
     var d = new Date(c.Fecha+'T12:00:00');
     var cancelled = c.Estado==='cancelada';
+    var completed = c.Estado==='completada';
+    var telL = c['Teléfono']||c.Telefono||'';
     var waMsg = encodeURIComponent('Hola '+c.Nombre+', te escribo desde Nail Glam Estefania para recordarte tu cita el '+fmtDate(c.Fecha)+' a las '+c.Hora+'. Te espero!');
     return '<div class="cita-card" style="'+(cancelled?'opacity:0.5':'')+'">'
       +'<div class="cita-fecha"><div class="cf-day">'+d.getDate()+'</div><div class="cf-mon">'+MONTH_SHORT[d.getMonth()]+'</div></div>'
       +'<div class="cita-info">'
-      +'<div class="cita-hora">'+c.Hora+'</div>'
-      +'<div class="cita-nombre">'+c.Nombre+' <span class="badge '+(cancelled?'badge-cancel':(completed?'badge-done':'badge-ok'))+'">'+(cancelled?'Cancelada':(completed?'✓ Completada':'Confirmada'))+'</span></div>'
-      +(function(){ var t=calcTotalCita(c); return '<div class="cita-servicio">'+c.Servicio+' · <strong style="color:var(--rose)">'+t.label+'</strong></div>'; }())
-      +'<div class="cita-tel">📱 '+c.Telefono+(c.Notas?' · '+c.Notas:'')+'</div>'
+      +'<div class="cita-hora">'+esc(c.Hora)+'</div>'
+      +'<div class="cita-nombre">'+esc(c.Nombre)+' <span class="badge '+(cancelled?'badge-cancel':(completed?'badge-done':'badge-ok'))+'">'+(cancelled?'Cancelada':(completed?'✓ Completada':'Confirmada'))+'</span></div>'
+      +(function(){ var t=calcTotalCita(c); return '<div class="cita-servicio">'+esc(c.Servicio)+' · <strong style="color:var(--rose)">'+t.label+'</strong></div>'; }())
+      +'<div class="cita-tel">📱 '+esc(telL)+(c.Notas?' · '+esc(c.Notas):'')+'</div>'
       +'</div>'
       +'<div class="cita-actions">'
-      +(cancelled?'':'<a href="https://wa.me/'+c.Telefono.replace(/\D/g,'')+'?text='+waMsg+'" target="_blank" class="btn-wa">WA</a>')
-      +(cancelled?'':'<button class="btn-cancel" data-cancelid="'+c.ID+'">Cancelar</button>')
+      +(cancelled?'':'<a href="https://wa.me/'+telL.replace(/\D/g,'')+'?text='+waMsg+'" target="_blank" class="btn-wa">WA</a>')
+      +(cancelled||completed?'':'<button class="btn-cancel" data-cancelid="'+esc(c.ID)+'">Cancelar</button>')
       +'</div>'
       +'</div>';
   }).join('');
@@ -1312,8 +1318,8 @@ function renderBloquear() {
       ? '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;">'
         + app.diasEspeciales.map(function(d){
             return '<span style="background:var(--light-gray);border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;display:inline-flex;align-items:center;gap:0.4rem;">'
-              +'📅 '+d.Fecha+' · '+d.Horario
-              +'<button data-especfecha="'+d.Fecha+'" style="background:none;border:none;cursor:pointer;color:var(--warm-gray);font-size:0.9rem;padding:0;margin-left:2px;">✕</button>'
+              +'📅 '+esc(d.Fecha)+' · '+esc(d.Horario)
+              +'<button data-especfecha="'+esc(d.Fecha)+'" style="background:none;border:none;cursor:pointer;color:var(--warm-gray);font-size:0.9rem;padding:0;margin-left:2px;">✕</button>'
               +'</span>';
           }).join('')
         +'</div>'
@@ -1350,13 +1356,13 @@ function renderModal() {
   var isCompleted = c.Estado==='completada';
   return '<div class="modal-bg" id="modalBg">'
     +'<div class="modal">'
-    +'<div class="modal-title">'+c.Nombre+'</div>'
-    +'<div class="modal-row"><span class="modal-label">Fecha</span><span>'+fmtDate(c.Fecha)+' · '+c.Hora+'</span></div>'
-    +'<div class="modal-row"><span class="modal-label">Servicio</span><span>'+c.Servicio+'</span></div>'
-    +(function(){ var t=calcTotalCita(c); return '<div class="modal-row"><span class="modal-label">Total a pagar</span><span style="font-weight:600;color:var(--rose)">'+t.label+'</span></div>'+(t.esBono?'<div class="modal-row"><span class="modal-label">Precio servicio</span><span style="color:var(--warm-gray)">'+c.Precio+'</span></div>':''); }())
+    +'<div class="modal-title">'+esc(c.Nombre)+'</div>'
+    +'<div class="modal-row"><span class="modal-label">Fecha</span><span>'+fmtDate(c.Fecha)+' · '+esc(c.Hora)+'</span></div>'
+    +'<div class="modal-row"><span class="modal-label">Servicio</span><span>'+esc(c.Servicio)+'</span></div>'
+    +(function(){ var t=calcTotalCita(c); return '<div class="modal-row"><span class="modal-label">Total a pagar</span><span style="font-weight:600;color:var(--rose)">'+esc(t.label)+'</span></div>'+(t.esBono?'<div class="modal-row"><span class="modal-label">Precio servicio</span><span style="color:var(--warm-gray)">'+esc(c.Precio)+'</span></div>':''); }())
     +'<div class="modal-row"><span class="modal-label">Teléfono</span><span>'+tel+'</span></div>'
     +((c.Notas&&(c.Notas.indexOf('🎟️')>=0||c.Notas.indexOf('Bono')>=0||c.Notas.indexOf('bono')>=0))?'<div class="modal-row"><span class="modal-label">🎟️ Bono</span><span style="color:var(--rose);font-weight:500;">Sesión de bono</span></div>':'')
-    +(c.Notas?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+c.Notas+'</span></div>':'')
+    +(c.Notas?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+esc(c.Notas)+'</span></div>':'')
     +'<div class="modal-row"><span class="modal-label">Estado</span><span>'+(isCancelled?'❌ Cancelada':(isCompleted?'✅ Completada':'✓ Confirmada'))+'</span></div>'
     +'<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.2rem;">'
     +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReminder+'" target="_blank" class="btn-wa" style="justify-content:center;padding:0.8rem;">Enviar recordatorio</a>':'')
@@ -1365,8 +1371,8 @@ function renderModal() {
     +(!isCancelled?'<button id="modalRescheduleBtn" style="padding:0.8rem;background:none;border:1.5px solid var(--rose);color:var(--rose);border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.88rem;cursor:pointer;">📅 Cambiar fecha / hora</button>':'')
     +(app.rescheduling?'<div style="background:var(--light-gray);border-radius:10px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;">'
       +'<div style="font-size:0.8rem;font-weight:500;color:var(--espresso)">Nueva fecha y hora:</div>'
-      +'<input type="date" id="rescheduleDate" value="'+c.Fecha+'" style="border:1.5px solid var(--light-gray);border-radius:8px;padding:0.6rem;font-family:DM Sans,sans-serif;font-size:0.9rem;outline:none;">'
-      +'<input type="time" id="rescheduleTime" value="'+c.Hora+'" style="border:1.5px solid var(--light-gray);border-radius:8px;padding:0.6rem;font-family:DM Sans,sans-serif;font-size:0.9rem;outline:none;">'
+      +'<input type="date" id="rescheduleDate" value="'+esc(c.Fecha)+'" style="border:1.5px solid var(--light-gray);border-radius:8px;padding:0.6rem;font-family:DM Sans,sans-serif;font-size:0.9rem;outline:none;">'
+      +'<input type="time" id="rescheduleTime" value="'+esc(c.Hora)+'" style="border:1.5px solid var(--light-gray);border-radius:8px;padding:0.6rem;font-family:DM Sans,sans-serif;font-size:0.9rem;outline:none;">'
       +'<div style="display:flex;gap:0.5rem;">'
       +'<button id="rescheduleConfirmBtn" style="flex:1;padding:0.7rem;background:var(--espresso);color:var(--cream);border:none;border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;">Confirmar cambio</button>'
       +'<button id="rescheduleCancelBtn" style="padding:0.7rem 1rem;background:none;border:1.5px solid var(--warm-gray);color:var(--warm-gray);border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;">Cancelar</button>'
@@ -1408,7 +1414,7 @@ function bindEvents() {
       var tabBtn = e.target.closest('.tab[data-tab]');
       if (tabBtn) { app.tab = tabBtn.dataset.tab; render(); return; }
       var statCard = e.target.closest('#statHoy, #statProximas, #statTotal');
-      if (statCard) { app.tab='agenda'; render(); return; }
+      if (statCard) { app.tab='lista'; render(); return; }
       var logoutBtn = e.target.closest('#logoutBtn');
       if (logoutBtn) { app.loggedIn=false; render(); return; }
     });
@@ -1606,6 +1612,8 @@ function bindEvents() {
   var citaFilterInput = document.getElementById('citaFilterInput');
   if (citaFilterInput) citaFilterInput.addEventListener('input', function(){
     app.citaFilter = this.value; render();
+    var fi = document.getElementById('citaFilterInput');
+    if (fi) { fi.focus(); fi.setSelectionRange(fi.value.length, fi.value.length); }
   });
 
   // Modal
@@ -1778,7 +1786,11 @@ function bindEvents() {
     render();
   });
   var csInput = document.getElementById('clientaSearchInput');
-  if (csInput) csInput.addEventListener('input', function(){ app.clientaSearch=this.value; render(); });
+  if (csInput) csInput.addEventListener('input', function(){
+    app.clientaSearch=this.value; render();
+    var si = document.getElementById('clientaSearchInput');
+    if (si) { si.focus(); si.setSelectionRange(si.value.length, si.value.length); }
+  });
   document.querySelectorAll('[data-editidx]').forEach(function(btn){
     btn.addEventListener('click', function(){
       var idx = parseInt(btn.dataset.editidx);

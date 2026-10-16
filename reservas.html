@@ -52,7 +52,11 @@
   .cal-day:hover:not(.empty):not(.past) { background: var(--light-gray); }
   .cal-day.empty { cursor: default; }
   .cal-day.past { color: #CCC; cursor: not-allowed; }
-  .cal-day.full-day { color: #CCC; }
+  .cal-day.full-day { flex-direction: column; gap: 1px; color: #C9A9B5; background: #F7EEF1; cursor: not-allowed; text-decoration: line-through; }
+  .cal-day.full-day .full-tag { font-size: 0.42rem; letter-spacing: 0; text-transform: uppercase; text-decoration: none; display: block; line-height: 1; }
+  .cal-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.9rem; margin-top: 0.8rem; font-size: 0.72rem; color: var(--warm-gray); }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .cal-legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
   .cal-day.selected { background: var(--rose); color: var(--white); border-color: var(--rose); font-weight: 500; }
   .cal-day.today:not(.selected) { border-color: var(--blush); }
   .cal-day.blocked { color: #CCC; cursor: not-allowed; text-decoration: line-through; }
@@ -340,7 +344,8 @@ function isDayOpen(dow, dateStr){
 
 function isDayFull(dateStr) {
   var slots = getSlots(dateStr, getTotalDur() || 30);
-  return slots.length === 0;
+  // Sin ningún hueco (p. ej. hoy y ya pasó la hora) no es "completo", simplemente no se puede reservar
+  return slots.length > 0 && !slots.some(function(s){ return !s.taken; });
 }
 function parseHorarioEspecial(horario) {
   // Parsea "9:00-14:00" o "9:00-14:00,16:00-19:00" → array de rangos [[540,840],...]
@@ -550,7 +555,7 @@ function renderStep2() {
   var firstDayRaw=new Date(state.year,state.month,1).getDay();
   var firstMon=firstDayRaw===0?6:firstDayRaw-1;
   var daysInM=new Date(state.year,state.month+1,0).getDate();
-  var cells='';
+  var cells='', hayCompletos=false;
   for (var i=0;i<firstMon;i++) cells+='<div class="cal-day empty"></div>';
   for (var d=1;d<=daysInM;d++) {
     var date=new Date(state.year,state.month,d);
@@ -559,14 +564,19 @@ function renderStep2() {
     var isPast=date<today;
     var unavail=isPast||date>maxD||!isDayOpen(date.getDay(),ds)||blocked;
     var esEspecial = !!(state.diasEspeciales && state.diasEspeciales[ds]);
+    // Día abierto pero sin ningún hueco libre para lo que ha elegido → "Completo", no se puede elegir
+    var full = !unavail && isDayFull(ds);
+    if (!unavail && !full && !getSlots(ds, getTotalDur() || 30).length) unavail = true;
+    if (full) { hayCompletos = true; if (state.date===ds) { state.date=null; state.time=null; } }
     var cls='cal-day';
     if (blocked) cls+=' blocked';
+    else if (full) cls+=' full-day';
     else if (unavail) cls+=' past';
     else cls+=' available';
-    if (esEspecial && !unavail) cls+=' especial';
+    if (esEspecial && !unavail && !full) cls+=' especial';
     if (date.getTime()===today.getTime()) cls+=' today';
     if (state.date===ds) cls+=' selected';
-    cells+='<div class="'+cls+'"'+(!unavail?' data-date="'+ds+'"':'')+'>'+d+'</div>';
+    cells+='<div class="'+cls+'"'+(!unavail&&!full?' data-date="'+ds+'"':'')+(full?' title="Día completo"':'')+'>'+(full?d+'<span class="full-tag">Completo</span>':d)+'</div>';
   }
   var slotsHtml='';
   if (state.date) {
@@ -594,6 +604,7 @@ function renderStep2() {
   return bonoModalHtml+'<div class="card"><div class="card-title">Elige tu fecha<small>Días disponibles según tu horario</small></div>'
     +'<div class="calendar-header"><button class="nav-btn" id="prevM">‹</button><div class="month-title">'+mNames[state.month]+' '+state.year+'</div><button class="nav-btn" id="nextM">›</button></div>'
     +'<div class="calendar-grid">'+dNames.map(function(n){return '<div class="cal-day-name">'+n+'</div>';}).join('')+cells+'</div>'
+    +(hayCompletos?'<div class="cal-legend"><span><i style="background:#F7EEF1;border:1px solid #E8D3DB"></i>Completo: ya no quedan huecos para tu servicio</span></div>':'')
     +slotsHtml
     +'<div style="margin-top:1.5rem"><button class="btn-primary" id="btn2"'+((state.date&&state.time)?'':' disabled')+'>Continuar →</button><button class="btn-secondary" id="back2">← Volver</button></div></div>';
 }
@@ -850,7 +861,11 @@ function bind() {
     }];
     var wlEncoded = btoa(unescape(encodeURIComponent(JSON.stringify(wlData))));
     fetch(SHEETDB_URL+'?_action=insert&sheet=ListaEspera&_data='+encodeURIComponent(wlEncoded))
-    .then(function(){
+    .then(function(r){ return r.text(); })
+    .then(function(txt){
+      // Si la hoja contesta con un error, no decir que se ha apuntado
+      var resp = null; try { resp = JSON.parse(txt); } catch(e) {}
+      if (resp && resp.error) throw new Error(resp.error);
       state.showWaitlist = false;
       state.waitlistDone = true;
       state.waitlistDias = ''; state.waitlistHoras = '';
@@ -858,7 +873,7 @@ function bind() {
     }).catch(function(){
       wlSubmitBtn.textContent = 'Apuntarme';
       wlSubmitBtn.disabled = false;
-      alert('Error al guardar. Inténtalo de nuevo.');
+      alert('No se ha podido guardar. Escríbeme por WhatsApp y te apunto yo 💕');
     });
   });
   var b2=document.getElementById('btn2');

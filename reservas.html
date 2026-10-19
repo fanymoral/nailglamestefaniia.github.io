@@ -725,6 +725,14 @@ function renderSuccess() {
   var dtEnd=state.date.replace(/-/g,'')+'T'+pad(Math.floor(endM/60))+pad(endM%60)+'00';
   var msg=encodeURIComponent('Hola! Acabo de reservar una cita.\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType:'')+(state.notes?'\nNotas: '+state.notes:'')+'\n\nNos vemos pronto!');
   var welcomeMsg = state.firstTime ? '<p style="font-size:0.85rem;color:var(--rose);margin-bottom:0.8rem;">✨ ¡Qué ilusión tenerte por primera vez! Te voy a cuidar muy bien 💕</p>' : '';
+  if (state.saveFailed) {
+    var msgF=encodeURIComponent('Hola! He intentado reservar en la web pero no se ha guardado. ¿Me la apuntas?\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType:'')+(state.notes?'\nNotas: '+state.notes:''));
+    return '<div class="card success-screen"><div class="success-icon">!</div><div class="success-title">Casi lista</div>'
+      +'<p class="success-sub">No se ha podido guardar tu cita del<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br>por un problema de conexión.</p>'
+      +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#856404;">⚠️ <strong>Pulsa el botón y mándame la reserva por WhatsApp.</strong> Te la apunto yo y te confirmo.</div>'
+      +'<a href="https://wa.me/'+WHATSAPP+'?text='+msgF+'" target="_blank" class="whatsapp-btn">Enviar por WhatsApp</a>'
+      +'</div>';
+  }
   return '<div class="card success-screen"><div class="success-icon">✓</div><div class="success-title">¡Reserva confirmada!</div>'
     +welcomeMsg
     +'<p class="success-sub">Tu cita ha quedado reservada para el<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br><br>'+(new Date() < new Date(2026,10,1) ? '¡Estoy de vuelta la última semana de octubre! 🌸<br>' : '')+'<span style="font-size:0.8rem;color:var(--warm-gray);">Según la demanda iré abriendo más horarios, así que si no encuentras hueco estate atenta 💕</span></p>'
@@ -1012,39 +1020,54 @@ function guardarCita() {
     Estado: 'confirmada'
   };
 
-  // Usamos un timeout largo (30s) porque Google Script puede tardar en arrancar
-  var done = false;
-  var timeout = setTimeout(function(){
-    if (!done) {
-      done = true;
-      state.submitting = false;
-      showLoading(false);
-      // Aunque haya tardado, la cita probablemente SÍ se guardó — avanzamos igual
-      state.step=5; render();
-    }
-  }, 30000);
-
   var encoded = btoa(unescape(encodeURIComponent(JSON.stringify([citaData]))));
-  // El bono se apunta en la ficha de la clienta desde el Apps Script (lee "Bono: ..." de las notas)
-  fetch(SHEETDB_URL+'?_action=insert&sheet=Citas&_data='+encodeURIComponent(encoded))
-  .then(function(r){ return r.json().catch(function(){ return {}; }); })
-  .then(function(resp){
-    if (done) return;
-    done = true; state.submitting = false; clearTimeout(timeout); showLoading(false);
-    if (resp && resp.error === 'ocupado') {
-      // Otra clienta ha cogido la hora en el último segundo
-      state.bookingId = null;
-      alert('¡Vaya! Alguien acaba de reservar ese horario. Por favor elige otro.');
-      state.time = null; state.step = 2;
-      loadData(function(){ render(); });
-      return;
-    }
-    state.step=5; render();
-  })
-  .catch(function(err){
-    if (!done) { done = true; state.submitting = false; clearTimeout(timeout); showLoading(false); state.step=5; render(); }
-  });
+  var insertURL = SHEETDB_URL+'?_action=insert&sheet=Citas&_data='+encodeURIComponent(encoded);
+  state.saveFailed = false;
 
+  function fin(ok) {
+    state.submitting = false; showLoading(false);
+    state.saveFailed = !ok;
+    state.step = 5; render();
+  }
+  // Pedir con límite de tiempo (Google Script a veces tarda en arrancar)
+  function pedir(url, ms) {
+    return Promise.race([
+      fetch(url).then(function(r){ return r.text(); }).then(function(t){ try { return JSON.parse(t); } catch(e) { return null; } }),
+      new Promise(function(res){ setTimeout(function(){ res(null); }, ms); })
+    ]).catch(function(){ return null; });
+  }
+  // ¿Está ya la cita en la hoja? (por si se guardó pero la respuesta se perdió)
+  function yaGuardada() {
+    return pedir(SHEETDB_URL+'?_action=mias&tel='+encodeURIComponent(state.phone.replace(/\D/g,'')), 20000).then(function(d){
+      var lista = Array.isArray(d) ? d : (d && d.citas) || [];
+      return lista.some(function(c){ return String(c.ID) === String(citaData.ID); });
+    });
+  }
+  // Solo se da por reservada si el Script confirma que la ha guardado.
+  // El ID es siempre el mismo, así que reintentar nunca duplica la cita.
+  function intentar(n) {
+    pedir(insertURL, 30000).then(function(resp){
+      if (resp && resp.error === 'ocupado') {
+        // Otra clienta ha cogido la hora en el último segundo
+        state.submitting = false; showLoading(false);
+        state.bookingId = null;
+        alert('¡Vaya! Alguien acaba de reservar ese horario. Por favor elige otro.');
+        state.time = null; state.step = 2;
+        loadData(function(){ render(); });
+        return;
+      }
+      if (resp && (resp.created > 0 || resp.duplicates > 0)) return fin(true);
+      return yaGuardada().then(function(si){
+        if (si) return fin(true);
+        if (n < 3) {
+          showLoading(false); showLoading(true, 'Guardando tu cita...<br><span style="font-size:0.75rem;opacity:0.7">Un momento más, reintentando</span>');
+          return setTimeout(function(){ intentar(n+1); }, 1500);
+        }
+        fin(false);
+      });
+    });
+  }
+  intentar(1);
 }
 
 function renderWelcomeModal() {

@@ -250,8 +250,13 @@
 <div id="root"></div>
 
 <script>
-var PASSWORD = "estefania2024";
 var API_URL = "https://script.google.com/macros/s/AKfycbz6zmE9s6Dv7HlnT57k1C-n0pKgyIR-bKRF0IYeFqGx0_0b56h8t82ymaog-IvYRJ1Zvg/exec";
+
+// La contraseña ya no está aquí: la comprueba el Apps Script (CLAVE_ADMIN)
+var KEY_STORE = 'nailglam_admin_key';
+var ADMIN_KEY = '';
+try { ADMIN_KEY = localStorage.getItem(KEY_STORE) || ''; } catch(e) {}
+function apiURL() { return API_URL + '?_key=' + encodeURIComponent(ADMIN_KEY); }
 
 var SCHEDULE = {
   0: [],
@@ -372,7 +377,7 @@ function fetchJSON(url, intentos) {
 
 // Precalentar Google Script en segundo plano
 function warmUp() {
-  try { fetch(API_URL+'?sheet=Citas').catch(function(){}); } catch(e) {}
+  try { fetch(apiURL()+'&sheet=Citas').catch(function(){}); } catch(e) {}
 }
 
 function normalizarClienta(c) {
@@ -425,12 +430,12 @@ function loadData(cb) {
     app.loading=true; // marcar que sigue actualizando en segundo plano
   }
 
-  var citasP    = fetchJSON(API_URL+'?sheet=Citas');
-  var bloquP    = fetchJSON(API_URL+'?sheet=Bloqueados');
-  var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
-  var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
-  var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
-  var especP    = fetchJSON(API_URL+'?sheet=DiasEspeciales');
+  var citasP    = fetchJSON(apiURL()+'&sheet=Citas');
+  var bloquP    = fetchJSON(apiURL()+'&sheet=Bloqueados');
+  var clientP   = fetchJSON(apiURL()+'&sheet=Clientas');
+  var esperaP   = fetchJSON(apiURL()+'&sheet=ListaEspera');
+  var horariosP = fetchJSON(apiURL()+'&sheet=Horarios');
+  var especP    = fetchJSON(apiURL()+'&sheet=DiasEspeciales');
 
   // Aviso si tarda más de 12 segundos
   var tardandoTimer = setTimeout(function() {
@@ -460,12 +465,12 @@ function startAutoRefresh() {
   if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
   _autoRefreshTimer = setInterval(function() {
     if (!app.loggedIn || app.loading) return;
-    var citasP    = fetchJSON(API_URL+'?sheet=Citas');
-    var bloquP    = fetchJSON(API_URL+'?sheet=Bloqueados');
-    var clientP   = fetchJSON(API_URL+'?sheet=Clientas');
-    var esperaP   = fetchJSON(API_URL+'?sheet=ListaEspera');
-    var horariosP = fetchJSON(API_URL+'?sheet=Horarios');
-    var especP    = fetchJSON(API_URL+'?sheet=DiasEspeciales');
+    var citasP    = fetchJSON(apiURL()+'&sheet=Citas');
+    var bloquP    = fetchJSON(apiURL()+'&sheet=Bloqueados');
+    var clientP   = fetchJSON(apiURL()+'&sheet=Clientas');
+    var esperaP   = fetchJSON(apiURL()+'&sheet=ListaEspera');
+    var horariosP = fetchJSON(apiURL()+'&sheet=Horarios');
+    var especP    = fetchJSON(apiURL()+'&sheet=DiasEspeciales');
     Promise.all([citasP, bloquP, clientP, esperaP, horariosP, especP]).then(function(results){
       applyResults(results);
       saveCache(results);
@@ -476,20 +481,28 @@ function startAutoRefresh() {
 
 // Usamos GET con parámetros en la URL para evitar CORS (GET nunca tiene preflight)
 // Los datos van codificados en base64 en el parámetro _data
+// true = clave buena, false = clave mala, null = sin conexión
+function comprobarClave(clave) {
+  return fetchWithTimeout(API_URL+'?_action=check&_key='+encodeURIComponent(clave), {}, 20000)
+    .then(function(r){ return r.json(); })
+    .then(function(d){ return !!(d && d.ok); })
+    .catch(function(){ return null; });
+}
+
 function apiPost(sheet, data) {
   var rows = Array.isArray(data) ? data : [data];
   var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(rows))));
-  return fetch(API_URL+'?_action=insert&sheet='+encodeURIComponent(sheet)+'&_data='+encodeURIComponent(encoded));
+  return fetch(apiURL()+'&_action=insert&sheet='+encodeURIComponent(sheet)+'&_data='+encodeURIComponent(encoded));
 }
 function apiPatch(sheet, col, val, data) {
   var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-  return fetch(API_URL+'?_action=update&sheet='+encodeURIComponent(sheet)+'&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val)+'&_data='+encodeURIComponent(encoded));
+  return fetch(apiURL()+'&_action=update&sheet='+encodeURIComponent(sheet)+'&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val)+'&_data='+encodeURIComponent(encoded));
 }
 function apiDelete(sheet, col, val) {
-  return fetch(API_URL+'?_action=delete&sheet='+encodeURIComponent(sheet)+'&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val));
+  return fetch(apiURL()+'&_action=delete&sheet='+encodeURIComponent(sheet)+'&col='+encodeURIComponent(col)+'&val='+encodeURIComponent(val));
 }
 function apiDeleteAll(sheet) {
-  return fetch(API_URL+'?_action=deleteAll&sheet='+encodeURIComponent(sheet));
+  return fetch(apiURL()+'&_action=deleteAll&sheet='+encodeURIComponent(sheet));
 }
 function cancelCita(id) {
   // Actualizar localmente de inmediato (sin esperar al servidor)
@@ -1453,15 +1466,31 @@ function bindEvents() {
   var lb = document.getElementById('loginBtn');
   if (lb) lb.addEventListener('click', function(){
     var pw = document.getElementById('pwInput').value;
-    if (pw===PASSWORD){ app.loggedIn=true; loadData(); }
-    else { document.getElementById('loginErr').textContent='Contraseña incorrecta'; }
+    var err = document.getElementById('loginErr');
+    lb.disabled = true; lb.textContent = 'Comprobando...'; err.textContent = '';
+    comprobarClave(pw).then(function(ok){
+      if (ok) {
+        ADMIN_KEY = pw;
+        try { localStorage.setItem(KEY_STORE, pw); } catch(e) {}
+        app.loggedIn = true; loadData();
+      } else {
+        lb.disabled = false; lb.textContent = 'Entrar';
+        err.textContent = ok === false ? 'Contraseña incorrecta' : 'No se ha podido conectar. Inténtalo otra vez.';
+      }
+    });
   });
   var pi = document.getElementById('pwInput');
   if (pi) pi.addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('loginBtn').click(); });
 
   // Logout
   var lo = document.getElementById('logoutBtn');
-  if (lo) lo.addEventListener('click', function(){ app.loggedIn=false; render(); });
+  if (lo) lo.addEventListener('click', function(){
+    app.loggedIn=false; ADMIN_KEY='';
+    if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+    try { localStorage.removeItem(KEY_STORE); localStorage.removeItem(CACHE_KEY); } catch(e) {}
+    app.citas=[]; app.clientas=[]; app.listaEspera=[];
+    render();
+  });
 
   // Stat cards clickable
   // Global event delegation
@@ -1966,6 +1995,17 @@ function bindEvents() {
   });
 }
 
+// Si ya entró antes en este móvil, entrar directamente (comprobando que la clave sigue valiendo)
+if (ADMIN_KEY) {
+  app.loggedIn = true; loadData();
+  comprobarClave(ADMIN_KEY).then(function(ok){
+    if (ok === false) {
+      ADMIN_KEY = ''; app.loggedIn = false;
+      try { localStorage.removeItem(KEY_STORE); localStorage.removeItem(CACHE_KEY); } catch(e) {}
+      render();
+    }
+  });
+}
 render();
 // Precalentar Google Script nada más cargar la página (antes del login)
 setTimeout(warmUp, 500);

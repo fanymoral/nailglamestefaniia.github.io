@@ -190,11 +190,17 @@ function guardarFecha(cita){
       render(); return;
     }
     var encoded = btoa(unescape(encodeURIComponent(JSON.stringify({Fecha: nf, Hora: nh}))));
-    return fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(cita.ID)+'&_data='+encodeURIComponent(encoded))
+    return fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(cita.ID)+'&tel='+encodeURIComponent(telDigitos())+'&_data='+encodeURIComponent(encoded))
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
       .then(function(txt){
         var resp=null; try{ resp=JSON.parse(txt); }catch(e){}
+        if (resp && resp.error === 'ocupado') {
+          state.guardando=false; state.fHora=null;
+          state.fError='¡Vaya! Alguien acaba de coger esa hora. Elige otra, por favor.';
+          return fetchJSON(SCRIPT_URL+'?sheet=Citas').then(function(c2){ if (c2 !== null) state.todasCitas = c2; render(); });
+        }
         if (resp && resp.error) throw new Error(resp.error);
+        if (resp && resp.updated === 0) throw new Error('no encontrada');
         state.guardando=false;
         state.movida = { nombre: cita.Nombre||'', antesF: cita.Fecha, antesH: cita.Hora, fecha: nf, hora: nh, servicio: cita.Servicio };
         state.step='movida'; state.fechaId=null; render();
@@ -240,11 +246,17 @@ function guardarServicio(cita){
     }
     var cambios = { Servicio: sel.map(function(s){return s.name;}).join(' + '), Precio: sel.map(function(s){return s.price;}).join(' + '), 'Duración': dur+' min', DurMin: dur };
     var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(cambios))));
-    return fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(cita.ID)+'&_data='+encodeURIComponent(encoded))
+    return fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(cita.ID)+'&tel='+encodeURIComponent(telDigitos())+'&_data='+encodeURIComponent(encoded))
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
       .then(function(txt){
         var resp=null; try{ resp=JSON.parse(txt); }catch(e){}
+        if (resp && resp.error === 'ocupado') {
+          state.guardando=false;
+          state.svcError='No puedo cambiarlo aquí porque se pisaría con otra cita. Escríbeme por WhatsApp y lo buscamos juntas 💕';
+          render(); return;
+        }
         if (resp && resp.error) throw new Error(resp.error);
+        if (resp && resp.updated === 0) throw new Error('no encontrada');
         state.guardando=false;
         state.cambiada = { nombre: cita.Nombre||'', fecha: cita.Fecha, hora: cita.Hora, antes: cita.Servicio, ahora: cambios.Servicio, total: Math.round(sel.reduce(function(a,s){return a+precioNum(s.price);},0)) };
         state.step='cambiada'; state.editId=null; render();
@@ -257,6 +269,7 @@ function guardarServicio(cita){
 }
 
 function pad(n){ return String(n).padStart(2,'0'); }
+function telDigitos(){ return String(state.telefono||'').replace(/\D/g,''); }
 function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function todayStr() {
   var d = new Date();
@@ -270,19 +283,20 @@ function fmtFecha(f) {
   return days[d.getDay()]+', '+d.getDate()+' de '+months[d.getMonth()];
 }
 
-function fetchJSON(url, intentos) {
+function fetchJSON(url, intentos, permitirObjeto) {
   intentos = intentos || 3;
   return fetch(url).then(function(r){ return r.text(); }).then(function(txt){
     try {
       var data = JSON.parse(txt);
       if (data && data.error) return null;
+      if (permitirObjeto && data && typeof data === 'object') return data;
       return Array.isArray(data) ? data : null;
     } catch(e) {
-      if (intentos > 1) return new Promise(function(res){ setTimeout(function(){ res(fetchJSON(url, intentos-1)); }, 1500); });
+      if (intentos > 1) return new Promise(function(res){ setTimeout(function(){ res(fetchJSON(url, intentos-1, permitirObjeto)); }, 1500); });
       return null;
     }
   }).catch(function(){
-    if (intentos > 1) return new Promise(function(res){ setTimeout(function(){ res(fetchJSON(url, intentos-1)); }, 1500); });
+    if (intentos > 1) return new Promise(function(res){ setTimeout(function(){ res(fetchJSON(url, intentos-1, permitirObjeto)); }, 1500); });
     return null;
   });
 }
@@ -305,14 +319,20 @@ function buscarCitas() {
   if (tel.length < 9) { state.error = 'Introduce un número de teléfono válido.'; render(); return; }
   state.step = 'loading'; state.error = ''; render();
   var hoy = todayStr();
-  fetchJSON(SCRIPT_URL+'?sheet=Citas').then(function(citas){
-    if (citas === null) {
+  // Sus citas (con su teléfono) + las horas ocupadas de todas (sin datos personales)
+  Promise.all([
+    fetchJSON(SCRIPT_URL+'?_action=mias&tel='+encodeURIComponent(tel), 3, true),
+    fetchJSON(SCRIPT_URL+'?sheet=Citas')
+  ]).then(function(res){
+    var mias = res[0], citas = res[1];
+    if (mias === null || citas === null) {
       state.step = 'form';
       state.error = 'No he podido cargar tus citas ahora mismo. Inténtalo de nuevo en un momento o escríbeme por WhatsApp.';
       render(); return;
     }
     state.todasCitas = citas;
-    state.citas = citas.filter(function(c){
+    var propias = Array.isArray(mias) ? mias : (mias.citas || []);
+    state.citas = propias.filter(function(c){
       var cTel = (c['Teléfono']||c.Telefono||'').replace(/\D/g,'');
       // Últimos 9 dígitos para comparar (por si hay prefijo)
       return cTel.slice(-9) === tel.slice(-9)
@@ -329,9 +349,13 @@ function cancelarCita(id, nombre, fecha, hora) {
   if (!confirm('¿Segura que quieres cancelar tu cita del '+fmtFecha(fecha)+' a las '+hora+'?')) return;
   state.cancelando = id; render();
   var encoded = btoa(unescape(encodeURIComponent(JSON.stringify({Estado:'cancelada'}))));
-  fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(id)+'&_data='+encodeURIComponent(encoded))
+  fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(id)+'&tel='+encodeURIComponent(telDigitos())+'&_data='+encodeURIComponent(encoded))
   .then(function(r){
     if (!r.ok) throw new Error('HTTP '+r.status);
+    return r.text();
+  }).then(function(txt){
+    var resp=null; try{ resp=JSON.parse(txt); }catch(e){}
+    if (resp && (resp.error || resp.updated === 0)) throw new Error(resp.error || 'no encontrada');
     state.cancelada = {nombre:nombre, fecha:fecha, hora:hora};
     state.cancelando = false;
     state.step = 'ok';

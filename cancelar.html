@@ -176,7 +176,7 @@ function renderCambioFecha(c){
     +(state.guardando
       ? '<div class="spinner-wrap" style="padding:0.8rem 0"><div class="spinner"></div></div>'
       : '<button class="btn-cambiar-cita" id="fSaveBtn" '+(state.fFecha&&state.fHora?'':'disabled style="opacity:0.5"')+'>Cambiar a '+(state.fFecha&&state.fHora?fmtFecha(state.fFecha)+' a las '+state.fHora:'...')+'</button>'
-        +'<button class="btn-cancel-cita" id="fCancelBtn" style="border-color:var(--light-gray);color:var(--warm-gray);">Volver</button>')
+        +'<button class="btn-cancel-cita btn-volver" id="fCancelBtn" style="border-color:var(--light-gray);color:var(--warm-gray);">Volver</button>')
     +'</div>';
 }
 function guardarFecha(cita){
@@ -221,7 +221,7 @@ function renderCambioServicio(c){
     +(state.guardando
       ? '<div class="spinner-wrap" style="padding:0.8rem 0"><div class="spinner"></div></div>'
       : '<button class="btn-cambiar-cita" id="svcSaveBtn" '+(sel.length?'':'disabled style="opacity:0.5"')+'>Guardar cambio</button>'
-        +'<button class="btn-cancel-cita" id="svcCancelBtn" style="border-color:var(--light-gray);color:var(--warm-gray);">Volver</button>')
+        +'<button class="btn-cancel-cita btn-volver" id="svcCancelBtn" style="border-color:var(--light-gray);color:var(--warm-gray);">Volver</button>')
     +'</div>';
 }
 function guardarServicio(cita){
@@ -387,7 +387,7 @@ function render() {
     html += '<button class="btn-primary" id="volverBtn" style="margin-top:0.5rem;background:none;border:1.5px solid var(--light-gray);color:var(--warm-gray);">Buscar con otro número</button>'
       +'<a class="back-link" href="reservas.html">← Volver a reservar cita</a>';
     app.innerHTML = html;
-    document.querySelectorAll('.btn-cancel-cita').forEach(function(btn){
+    document.querySelectorAll('.btn-cancel-cita[data-id]').forEach(function(btn){
       btn.addEventListener('click', function(){
         cancelarCita(btn.dataset.id, btn.dataset.nombre, btn.dataset.fecha, btn.dataset.hora);
       });

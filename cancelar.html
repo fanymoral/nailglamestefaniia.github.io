@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cancelar cita — Nail Glam Estefania</title>
+<title>Cancelar o cambiar cita — Nail Glam Estefania</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💅</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -33,6 +33,23 @@
   .cita-detalle { font-size:0.82rem; color:var(--warm-gray); }
   .btn-cancel-cita { margin-top:0.8rem; width:100%; padding:0.7rem; background:none; border:1.5px solid var(--rose); color:var(--rose); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
   .btn-cancel-cita:hover { background:var(--rose); color:#fff; }
+  .btn-cambiar-cita { margin-top:0.8rem; width:100%; padding:0.7rem; background:var(--rose); border:1.5px solid var(--rose); color:#fff; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:0.85rem; cursor:pointer; }
+  .svc-box { margin-top:0.8rem; background:var(--light-gray); border-radius:10px; padding:0.9rem 1rem; }
+  .svc-grupo { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--warm-gray); margin-top:0.6rem; }
+  .svc-opt { display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; padding:0.3rem 0; cursor:pointer; }
+  .svc-opt input { width:18px; height:18px; accent-color:var(--rose); flex-shrink:0; }
+  .svc-opt .svc-info { margin-left:auto; color:var(--warm-gray); font-size:0.74rem; white-space:nowrap; }
+  .btn-fecha-cita { margin-top:0.6rem; width:100%; padding:0.7rem; background:none; border:1.5px solid var(--rose); color:var(--rose); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:0.85rem; cursor:pointer; }
+  .cal-head { display:flex; align-items:center; justify-content:space-between; margin:0.4rem 0 0.6rem; }
+  .cal-head button { background:none; border:1.5px solid var(--light-gray); border-radius:8px; width:34px; height:34px; cursor:pointer; font-size:1rem; color:var(--espresso); }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .cal-dn { text-align:center; font-size:0.62rem; color:var(--warm-gray); padding:0.2rem 0; }
+  .cal-d { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:0.8rem; color:#CCC; }
+  .cal-d.ok { color:var(--espresso); background:#fff; cursor:pointer; border:1px solid var(--light-gray); }
+  .cal-d.sel { background:var(--rose); color:#fff; border-color:var(--rose); }
+  .slots { display:grid; grid-template-columns:repeat(4,1fr); gap:0.4rem; margin-top:0.7rem; }
+  .slot { padding:0.55rem 0; border-radius:8px; border:1px solid var(--light-gray); background:#fff; font-size:0.8rem; cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .slot.sel { background:var(--rose); color:#fff; border-color:var(--rose); }
   .msg { padding:1rem; border-radius:10px; font-size:0.85rem; margin-bottom:1rem; line-height:1.5; }
   .msg-ok { background:#f0faf4; border:1px solid #a8d8b9; color:#2d6a4a; }
   .msg-error { background:#fff0f0; border:1px solid #f0b8b8; color:#a03030; }
@@ -48,7 +65,7 @@
 <body>
 <header>
   <div class="salon-name">Nail Glam <span>Estefania</span></div>
-  <div class="header-sub">Cancelar cita</div>
+  <div class="header-sub">Cancelar o cambiar cita</div>
 </header>
 <main>
   <div class="card">
@@ -60,9 +77,187 @@
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6zmE9s6Dv7HlnT57k1C-n0pKgyIR-bKRF0IYeFqGx0_0b56h8t82ymaog-IvYRJ1Zvg/exec';
 var WHATSAPP = '34672574200';
 
-var state = { step: 'form', telefono: '', citas: [], cancelando: false, cancelada: null, error: '' };
+var state = { step: 'form', telefono: '', citas: [], cancelando: false, cancelada: null, error: '',
+  todasCitas: [], horarios: null, especiales: {}, bloqueados: [], fechaId: null, fMes: null, fAno: null, fFecha: null, fHora: null, fError: '', editId: null, svcSel: [], svcError: '', guardando: false, cambiada: null };
+
+// Servicios (los mismos que en reservas.html: si cambias precios allí, cámbialos también aquí)
+var SERVICIOS = [
+  {id:'semi', name:'Semipermanente', duration:60, price:'20€', grupo:'Manos'},
+  {id:'gel', name:'Refuerzo con Gel', duration:60, price:'22€', grupo:'Manos'},
+  {id:'acrigel', name:'Acrigel', duration:90, price:'30€', grupo:'Manos'},
+  {id:'relleno-acri', name:'Relleno de Acrigel', duration:90, price:'27€', grupo:'Manos'},
+  {id:'pies', name:'Pies', duration:30, price:'18€', grupo:'Pies'},
+  {id:'pedicura', name:'Pedicura Spa', duration:45, price:'30€', grupo:'Pies'},
+  {id:'deco-basic', name:'Decoración básica', duration:0, price:'2€', grupo:'Extras'},
+  {id:'deco-mid', name:'Decoración media', duration:0, price:'3€', grupo:'Extras'},
+  {id:'deco-full', name:'Nail art completo', duration:30, price:'7€', grupo:'Extras'},
+  {id:'ret-semi', name:'Retirada Semipermanente', duration:30, price:'7€', grupo:'Extras'},
+  {id:'ret-acri', name:'Retirada Acrigel', duration:30, price:'10€', grupo:'Extras'}
+];
+var BASE_SERVICES = ['semi','gel','acrigel','relleno-acri'];
+var DECO_SERVICES = ['deco-basic','deco-mid','deco-full'];
+// Horario por defecto (el mismo que reservas.html); si en el panel has guardado otro, se usa ese
+var HORARIO_DEFECTO = {0:[],1:[[960,1230]],2:[[960,1230]],3:[[960,1230]],4:[[960,1230]],5:[[570,870]],6:[]};
+
+function timeToMins(t){ if(!t) return 0; var p=String(t).split(':'); return parseInt(p[0])*60+parseInt(p[1]||0); }
+function durCita(c){ var d=parseInt(c.DurMin)||0; if(!d) d=parseInt(c['Duración']||c.Duracion||'')||60; return d; }
+function precioNum(p){ return (String(p||'').match(/\d+(?:[.,]\d+)?/g)||[]).reduce(function(a,n){ return a+parseFloat(n.replace(',','.')); },0); }
+function svcSel(){ return SERVICIOS.filter(function(s){ return state.svcSel.indexOf(s.id)>=0; }); }
+function svcIdsDeTexto(t){ var partes=String(t||'').split(' + ').map(function(x){return x.trim();}); return SERVICIOS.filter(function(s){ return partes.indexOf(s.name)>=0; }).map(function(s){ return s.id; }); }
+function rangosDelDia(fecha){
+  if (state.especiales[fecha]) {
+    var r=[]; String(state.especiales[fecha]).split(',').forEach(function(p){ var m=p.trim().match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/); if(m) r.push([+m[1]*60+ +m[2], +m[3]*60+ +m[4]]); });
+    return r;
+  }
+  var h = state.horarios || HORARIO_DEFECTO;
+  return h[new Date(fecha+'T12:00:00').getDay()] || [];
+}
+// ¿Cabe la cita con la nueva duración? (sin pisar a otra clienta ni pasarse del horario)
+function comprobarHueco(cita, dur){
+  var ini = timeToMins(cita.Hora), fin = ini + (dur||30);
+  var rangos = rangosDelDia(cita.Fecha);
+  var rango = rangos.filter(function(r){ return ini>=r[0] && ini<r[1]; })[0];
+  if (rango && fin > rango[1]) return 'se pasaría de mi horario de ese día';
+  var choca = state.todasCitas.some(function(o){
+    if (o.Estado==='cancelada' || o.Fecha!==cita.Fecha || String(o.ID)===String(cita.ID)) return false;
+    var oi=timeToMins(o.Hora), of=oi+durCita(o);
+    return ini<of && fin>oi;
+  });
+  return choca ? 'no queda tiempo libre después de tu cita' : '';
+}
+// ── Cambiar día y hora ──
+var MAX_DIAS = 90; // igual que en reservas.html
+function pad2(n){ return String(n).padStart(2,'0'); }
+function isoDe(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function huecosLibres(fecha, dur, excluirId){
+  if (state.bloqueados.indexOf(fecha)>=0 && !state.especiales[fecha]) return [];
+  var am = state.bloqueados.indexOf(fecha+'_AM')>=0, pm = state.bloqueados.indexOf(fecha+'_PM')>=0, SPLIT=14*60;
+  var ahora = new Date(), minHoy = (fecha===isoDe(ahora)) ? ahora.getHours()*60+ahora.getMinutes() : 0;
+  var out=[];
+  rangosDelDia(fecha).forEach(function(r){
+    var a=r[0], b=r[1];
+    if (am && b<=SPLIT) return; if (pm && a>=SPLIT) return;
+    if (am && a<SPLIT) a=SPLIT; if (pm && b>SPLIT) b=SPLIT;
+    for (var t=a; t+dur<=b; t+=30) {
+      if (t < minHoy) continue;
+      var fin=t+dur;
+      var choca = state.todasCitas.some(function(o){
+        if (o.Estado==='cancelada' || o.Fecha!==fecha || String(o.ID)===String(excluirId)) return false;
+        var oi=timeToMins(o.Hora), of=oi+durCita(o); return t<of && fin>oi;
+      });
+      if (!choca) out.push(pad2(Math.floor(t/60))+':'+pad2(t%60));
+    }
+  });
+  return out;
+}
+function renderCambioFecha(c){
+  var dur = durCita(c) || 30;
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var max = new Date(hoy); max.setDate(max.getDate()+MAX_DIAS);
+  var mNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var primero = new Date(state.fAno, state.fMes, 1), off = (primero.getDay()+6)%7, dias = new Date(state.fAno, state.fMes+1, 0).getDate();
+  var celdas = ['L','M','X','J','V','S','D'].map(function(n){ return '<div class="cal-dn">'+n+'</div>'; }).join('');
+  for (var i=0;i<off;i++) celdas += '<div></div>';
+  for (var d=1; d<=dias; d++) {
+    var f = new Date(state.fAno, state.fMes, d), iso = isoDe(f);
+    var ok = f>=hoy && f<=max && huecosLibres(iso, dur, c.ID).length>0;
+    celdas += '<div class="cal-d'+(ok?' ok':'')+(state.fFecha===iso?' sel':'')+'"'+(ok?' data-fdia="'+iso+'"':'')+'>'+d+'</div>';
+  }
+  var slots = state.fFecha ? huecosLibres(state.fFecha, dur, c.ID) : [];
+  return '<div class="svc-box">'
+    +'<div style="font-size:0.85rem;font-weight:500;">Elige el nuevo día y hora</div>'
+    +'<div style="font-size:0.75rem;color:var(--warm-gray);margin-top:0.2rem;">Tu cita dura '+dur+' min. Solo salen los días con hueco.</div>'
+    +'<div class="cal-head"><button id="fPrev">‹</button><strong style="font-weight:500;">'+mNames[state.fMes]+' '+state.fAno+'</strong><button id="fNext">›</button></div>'
+    +'<div class="cal-grid">'+celdas+'</div>'
+    +(state.fFecha ? (slots.length
+        ? '<div class="slots">'+slots.map(function(h){ return '<button class="slot'+(state.fHora===h?' sel':'')+'" data-fhora="'+h+'">'+h+'</button>'; }).join('')+'</div>'
+        : '<div class="msg msg-info" style="margin:0.7rem 0 0;">Ese día ya no queda hueco.</div>') : '')
+    +(state.fError?'<div class="msg msg-error" style="margin:0.7rem 0 0;">'+esc(state.fError)+'</div>':'')
+    +(state.guardando
+      ? '<div class="spinner-wrap" style="padding:0.8rem 0"><div class="spinner"></div></div>'
+      : '<button class="btn-cambiar-cita" id="fSaveBtn" '+(state.fFecha&&state.fHora?'':'disabled style="opacity:0.5"')+'>Cambiar a '+(state.fFecha&&state.fHora?fmtFecha(state.fFecha)+' a las '+state.fHora:'...')+'</button>'
+        +'<button class="btn-cancel-cita" id="fCancelBtn" style="border-color:var(--light-gray);color:var(--warm-gray);">Volver</button>')
+    +'</div>';
+}
+function guardarFecha(cita){
+  var dur = durCita(cita) || 30, nf = state.fFecha, nh = state.fHora;
+  state.guardando=true; state.fError=''; render();
+  fetchJSON(SCRIPT_URL+'?sheet=Citas').then(function(citas){
+    if (citas !== null) state.todasCitas = citas;
+    if (huecosLibres(nf, dur, cita.ID).indexOf(nh) < 0) {
+      state.guardando=false; state.fHora=null;
+      state.fError='¡Vaya! Alguien acaba de coger esa hora. Elige otra, por favor.';
+      render(); return;
+    }
+    var encoded = btoa(unescape(encodeURIComponent(JSON.stringify({Fecha: nf, Hora: nh}))));
+    return fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(cita.ID)+'&_data='+encodeURIComponent(encoded))
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+      .then(function(txt){
+        var resp=null; try{ resp=JSON.parse(txt); }catch(e){}
+        if (resp && resp.error) throw new Error(resp.error);
+        state.guardando=false;
+        state.movida = { nombre: cita.Nombre||'', antesF: cita.Fecha, antesH: cita.Hora, fecha: nf, hora: nh, servicio: cita.Servicio };
+        state.step='movida'; state.fechaId=null; render();
+      });
+  }).catch(function(){
+    state.guardando=false;
+    state.fError='Hubo un problema al guardar. Inténtalo de nuevo o escríbeme por WhatsApp.';
+    render();
+  });
+}
+
+function renderCambioServicio(c){
+  var sel=svcSel(), dur=sel.reduce(function(a,s){return a+s.duration;},0), precio=sel.reduce(function(a,s){return a+precioNum(s.price);},0);
+  var html = ['Manos','Pies','Extras'].map(function(g){
+    return '<div class="svc-grupo">'+g+'</div>'+SERVICIOS.filter(function(s){return s.grupo===g;}).map(function(s){
+      return '<label class="svc-opt"><input type="checkbox" class="svc-check" data-svcid="'+s.id+'" '+(state.svcSel.indexOf(s.id)>=0?'checked':'')+'><span>'+s.name+'</span><span class="svc-info">'+(s.duration?s.duration+' min · ':'')+s.price+'</span></label>';
+    }).join('');
+  }).join('');
+  return '<div class="svc-box">'
+    +'<div style="font-size:0.85rem;font-weight:500;">Elige el servicio que quieres</div>'
+    +html
+    +'<div style="margin-top:0.8rem;font-size:0.85rem;">Duración: <strong>'+dur+' min</strong> · Total: <strong style="color:var(--rose)">'+Math.round(precio)+'€</strong></div>'
+    +(state.svcError?'<div class="msg msg-error" style="margin:0.7rem 0 0;">'+esc(state.svcError)+'</div>':'')
+    +(state.guardando
+      ? '<div class="spinner-wrap" style="padding:0.8rem 0"><div class="spinner"></div></div>'
+      : '<button class="btn-cambiar-cita" id="svcSaveBtn" '+(sel.length?'':'disabled style="opacity:0.5"')+'>Guardar cambio</button>'
+        +'<button class="btn-cancel-cita" id="svcCancelBtn" style="border-color:var(--light-gray);color:var(--warm-gray);">Volver</button>')
+    +'</div>';
+}
+function guardarServicio(cita){
+  var sel=svcSel();
+  if (!sel.length) return;
+  var dur=sel.reduce(function(a,s){return a+s.duration;},0);
+  state.guardando=true; state.svcError=''; render();
+  // Recargar las citas para comprobar con datos frescos
+  fetchJSON(SCRIPT_URL+'?sheet=Citas').then(function(citas){
+    if (citas !== null) state.todasCitas = citas;
+    var problema = comprobarHueco(cita, dur);
+    if (problema) {
+      state.guardando=false;
+      state.svcError='No puedo cambiarlo aquí porque '+problema+'. Escríbeme por WhatsApp y lo buscamos juntas 💕';
+      render(); return;
+    }
+    var cambios = { Servicio: sel.map(function(s){return s.name;}).join(' + '), Precio: sel.map(function(s){return s.price;}).join(' + '), 'Duración': dur+' min', DurMin: dur };
+    var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(cambios))));
+    return fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(cita.ID)+'&_data='+encodeURIComponent(encoded))
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+      .then(function(txt){
+        var resp=null; try{ resp=JSON.parse(txt); }catch(e){}
+        if (resp && resp.error) throw new Error(resp.error);
+        state.guardando=false;
+        state.cambiada = { nombre: cita.Nombre||'', fecha: cita.Fecha, hora: cita.Hora, antes: cita.Servicio, ahora: cambios.Servicio, total: Math.round(sel.reduce(function(a,s){return a+precioNum(s.price);},0)) };
+        state.step='cambiada'; state.editId=null; render();
+      });
+  }).catch(function(){
+    state.guardando=false;
+    state.svcError='Hubo un problema al guardar. Inténtalo de nuevo o escríbeme por WhatsApp.';
+    render();
+  });
+}
 
 function pad(n){ return String(n).padStart(2,'0'); }
+function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function todayStr() {
   var d = new Date();
   return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -80,25 +275,44 @@ function fetchJSON(url, intentos) {
   return fetch(url).then(function(r){ return r.text(); }).then(function(txt){
     try {
       var data = JSON.parse(txt);
-      if (data && data.error) return [];
-      return Array.isArray(data) ? data : [];
+      if (data && data.error) return null;
+      return Array.isArray(data) ? data : null;
     } catch(e) {
       if (intentos > 1) return new Promise(function(res){ setTimeout(function(){ res(fetchJSON(url, intentos-1)); }, 1500); });
-      return [];
+      return null;
     }
   }).catch(function(){
     if (intentos > 1) return new Promise(function(res){ setTimeout(function(){ res(fetchJSON(url, intentos-1)); }, 1500); });
-    return [];
+    return null;
+  });
+}
+
+function cargarHorarios() {
+  fetchJSON(SCRIPT_URL+'?sheet=Horarios').then(function(h){
+    if (h && h.length && h[0].Config) { try { var cfg=JSON.parse(String(h[0].Config).replace(/\\"/g,'"')); var n={}; Object.keys(cfg).forEach(function(k){ n[parseInt(k)]=cfg[k]; }); state.horarios=n; } catch(e){} }
+  });
+  fetchJSON(SCRIPT_URL+'?sheet=DiasEspeciales').then(function(d){
+    (d||[]).forEach(function(x){ if (x.Fecha && x.Horario) state.especiales[x.Fecha]=x.Horario; });
+  });
+  fetchJSON(SCRIPT_URL+'?sheet=Bloqueados').then(function(b){
+    state.bloqueados = (b||[]).map(function(x){ return String(x.Fecha||x.fecha||''); }).filter(Boolean);
   });
 }
 
 function buscarCitas() {
+  cargarHorarios();
   var tel = state.telefono.replace(/\D/g,'');
   if (tel.length < 9) { state.error = 'Introduce un número de teléfono válido.'; render(); return; }
   state.step = 'loading'; state.error = ''; render();
   var hoy = todayStr();
   fetchJSON(SCRIPT_URL+'?sheet=Citas').then(function(citas){
-    state.citas = (citas||[]).filter(function(c){
+    if (citas === null) {
+      state.step = 'form';
+      state.error = 'No he podido cargar tus citas ahora mismo. Inténtalo de nuevo en un momento o escríbeme por WhatsApp.';
+      render(); return;
+    }
+    state.todasCitas = citas;
+    state.citas = citas.filter(function(c){
       var cTel = (c['Teléfono']||c.Telefono||'').replace(/\D/g,'');
       // Últimos 9 dígitos para comparar (por si hay prefijo)
       return cTel.slice(-9) === tel.slice(-9)
@@ -116,7 +330,8 @@ function cancelarCita(id, nombre, fecha, hora) {
   state.cancelando = id; render();
   var encoded = btoa(unescape(encodeURIComponent(JSON.stringify({Estado:'cancelada'}))));
   fetch(SCRIPT_URL+'?_action=update&sheet=Citas&col=ID&val='+encodeURIComponent(id)+'&_data='+encodeURIComponent(encoded))
-  .then(function(){
+  .then(function(r){
+    if (!r.ok) throw new Error('HTTP '+r.status);
     state.cancelada = {nombre:nombre, fecha:fecha, hora:hora};
     state.cancelando = false;
     state.step = 'ok';
@@ -132,11 +347,11 @@ function cancelarCita(id, nombre, fecha, hora) {
 function render() {
   var app = document.getElementById('app');
   if (state.step === 'form') {
-    app.innerHTML = '<div class="card-title">Cancelar mi cita</div>'
-      +'<div class="card-sub">Introduce tu número de teléfono para ver tus próximas citas y cancelar la que necesites.</div>'
+    app.innerHTML = '<div class="card-title">Cancelar o cambiar mi cita</div>'
+      +'<div class="card-sub">Introduce tu número de teléfono para ver tus próximas citas. Podrás cambiar el servicio, el día o la hora, o cancelar la que necesites.</div>'
       +(state.error ? '<div class="msg msg-error">'+state.error+'</div>' : '')
       +'<label class="form-label">Tu número de teléfono</label>'
-      +'<input class="form-input" id="telInput" type="tel" placeholder="612 345 678" value="'+state.telefono+'">'
+      +'<input class="form-input" id="telInput" type="tel" placeholder="612 345 678" value="'+esc(state.telefono)+'">'
       +'<button class="btn-primary" id="buscarBtn">Buscar mis citas</button>'
       +'<a class="back-link" href="reservas.html">← Volver a reservar cita</a>';
     var inp = document.getElementById('telInput');
@@ -154,12 +369,18 @@ function render() {
     } else {
       html += state.citas.map(function(c){
         var isCancelando = state.cancelando === c.ID;
+        var editando = String(state.editId) === String(c.ID);
+        var moviendo = String(state.fechaId) === String(c.ID);
         return '<div class="cita-card">'
-          +'<div class="cita-fecha">'+fmtFecha(c.Fecha)+' · '+c.Hora+'</div>'
-          +'<div class="cita-detalle">'+c.Servicio+'</div>'
+          +'<div class="cita-fecha">'+fmtFecha(c.Fecha)+' · '+esc(c.Hora)+'</div>'
+          +'<div class="cita-detalle">'+esc(c.Servicio)+'</div>'
           +(isCancelando
             ? '<div class="spinner-wrap" style="padding:0.8rem 0"><div class="spinner"></div></div>'
-            : '<button class="btn-cancel-cita" data-id="'+c.ID+'" data-nombre="'+(c.Nombre||'')+'" data-fecha="'+c.Fecha+'" data-hora="'+c.Hora+'">✕ Cancelar esta cita</button>')
+            : editando ? renderCambioServicio(c)
+            : moviendo ? renderCambioFecha(c)
+            : '<button class="btn-cambiar-cita" data-editid="'+esc(c.ID)+'">💅 Cambiar servicio</button>'
+              +'<button class="btn-fecha-cita" data-fechaid="'+esc(c.ID)+'">📅 Cambiar día u hora</button>'
+              +'<button class="btn-cancel-cita" data-id="'+esc(c.ID)+'" data-nombre="'+esc(c.Nombre||'')+'" data-fecha="'+esc(c.Fecha)+'" data-hora="'+esc(c.Hora)+'">✕ Cancelar esta cita</button>')
           +'</div>';
       }).join('');
     }
@@ -171,16 +392,89 @@ function render() {
         cancelarCita(btn.dataset.id, btn.dataset.nombre, btn.dataset.fecha, btn.dataset.hora);
       });
     });
+    document.querySelectorAll('[data-editid]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var c = state.citas.filter(function(x){ return String(x.ID)===btn.dataset.editid; })[0];
+        state.fechaId = null;
+        state.editId = btn.dataset.editid; state.svcSel = svcIdsDeTexto(c && c.Servicio); state.svcError=''; render();
+      });
+    });
+    document.querySelectorAll('.svc-check').forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var id = cb.dataset.svcid; state.svcError='';
+        if (cb.checked) {
+          var grupo = BASE_SERVICES.indexOf(id)>=0 ? BASE_SERVICES : (DECO_SERVICES.indexOf(id)>=0 ? DECO_SERVICES : null);
+          // Solo un servicio principal de manos y un nivel de decoración: al marcar uno se quita el otro
+          if (grupo) state.svcSel = state.svcSel.filter(function(x){ return grupo.indexOf(x)<0; });
+          state.svcSel.push(id);
+        } else {
+          state.svcSel = state.svcSel.filter(function(x){ return x!==id; });
+        }
+        render();
+      });
+    });
+    var ssb = document.getElementById('svcSaveBtn');
+    if (ssb) ssb.addEventListener('click', function(){
+      var c = state.citas.filter(function(x){ return String(x.ID)===String(state.editId); })[0];
+      if (c) guardarServicio(c);
+    });
+    document.querySelectorAll('[data-fechaid]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var c = state.citas.filter(function(x){ return String(x.ID)===btn.dataset.fechaid; })[0];
+        var base = new Date(((c && c.Fecha) || todayStr())+'T12:00:00');
+        state.editId = null; state.fechaId = btn.dataset.fechaid;
+        state.fMes = base.getMonth(); state.fAno = base.getFullYear(); state.fFecha = null; state.fHora = null; state.fError = '';
+        render();
+      });
+    });
+    var fp = document.getElementById('fPrev'), fn = document.getElementById('fNext');
+    if (fp) fp.addEventListener('click', function(){ if(state.fMes===0){state.fMes=11;state.fAno--;}else state.fMes--; render(); });
+    if (fn) fn.addEventListener('click', function(){ if(state.fMes===11){state.fMes=0;state.fAno++;}else state.fMes++; render(); });
+    document.querySelectorAll('[data-fdia]').forEach(function(el){
+      el.addEventListener('click', function(){ state.fFecha = el.dataset.fdia; state.fHora = null; state.fError=''; render(); });
+    });
+    document.querySelectorAll('[data-fhora]').forEach(function(el){
+      el.addEventListener('click', function(){ state.fHora = el.dataset.fhora; state.fError=''; render(); });
+    });
+    var fsb = document.getElementById('fSaveBtn');
+    if (fsb) fsb.addEventListener('click', function(){
+      var c = state.citas.filter(function(x){ return String(x.ID)===String(state.fechaId); })[0];
+      if (c && state.fFecha && state.fHora) guardarFecha(c);
+    });
+    var fcb = document.getElementById('fCancelBtn');
+    if (fcb) fcb.addEventListener('click', function(){ state.fechaId=null; state.fError=''; render(); });
+    var scb = document.getElementById('svcCancelBtn');
+    if (scb) scb.addEventListener('click', function(){ state.editId=null; state.svcError=''; render(); });
     document.getElementById('volverBtn').addEventListener('click', function(){
       state.step='form'; state.citas=[]; state.error=''; render();
     });
+  } else if (state.step === 'movida') {
+    var mv = state.movida;
+    var waMv = encodeURIComponent('Hola Estefanía, soy '+mv.nombre+'. He cambiado mi cita de '+mv.servicio+' del '+fmtFecha(mv.antesF)+' a las '+mv.antesH+' al '+fmtFecha(mv.fecha)+' a las '+mv.hora+'.');
+    app.innerHTML = '<div style="text-align:center;padding:1rem 0;">'
+      +'<div style="font-size:3rem;margin-bottom:1rem;">📅</div>'
+      +'<div class="card-title">Cita cambiada</div>'
+      +'<div class="card-sub" style="margin-top:0.5rem;">Tu cita de <strong>'+esc(mv.servicio)+'</strong> es ahora el<br><strong>'+fmtFecha(mv.fecha)+' a las '+esc(mv.hora)+'</strong></div>'
+      +'<a href="https://wa.me/'+WHATSAPP+'?text='+waMv+'" target="_blank" class="btn-primary" style="display:block;margin-top:1.5rem;text-decoration:none;text-align:center;">💬 Avisar por WhatsApp</a>'
+      +'<a class="back-link" href="reservas.html">Volver a la web</a>'
+      +'</div>';
+  } else if (state.step === 'cambiada') {
+    var m = state.cambiada;
+    var waTxt = encodeURIComponent('Hola Estefanía, soy '+m.nombre+'. He cambiado el servicio de mi cita del '+fmtFecha(m.fecha)+' a las '+m.hora+': antes '+m.antes+', ahora '+m.ahora+'.');
+    app.innerHTML = '<div style="text-align:center;padding:1rem 0;">'
+      +'<div style="font-size:3rem;margin-bottom:1rem;">💅</div>'
+      +'<div class="card-title">Cita actualizada</div>'
+      +'<div class="card-sub" style="margin-top:0.5rem;">Tu cita del <strong>'+fmtFecha(m.fecha)+'</strong> a las <strong>'+esc(m.hora)+'</strong> ahora es:<br><strong>'+esc(m.ahora)+'</strong><br>Total: <strong>'+m.total+'€</strong></div>'
+      +'<a href="https://wa.me/'+WHATSAPP+'?text='+waTxt+'" target="_blank" class="btn-primary" style="display:block;margin-top:1.5rem;text-decoration:none;text-align:center;">💬 Avisar por WhatsApp</a>'
+      +'<a class="back-link" href="reservas.html">Volver a la web</a>'
+      +'</div>';
   } else if (state.step === 'ok') {
     var c = state.cancelada;
     var waMsg = encodeURIComponent('Hola Estefanía, soy '+c.nombre+'. He cancelado mi cita del '+fmtFecha(c.fecha)+' a las '+c.hora+'. Si necesitas algo más no dudes en escribirme.');
     app.innerHTML = '<div style="text-align:center;padding:1rem 0;">'
       +'<div style="font-size:3rem;margin-bottom:1rem;">✅</div>'
       +'<div class="card-title">Cita cancelada</div>'
-      +'<div class="card-sub" style="margin-top:0.5rem;">Tu cita del <strong>'+fmtFecha(c.fecha)+'</strong> a las <strong>'+c.hora+'</strong> ha sido cancelada.<br><br>Si necesitas volver a reservar, hazlo cuando quieras desde la web. ¡Hasta pronto! 💕</div>'
+      +'<div class="card-sub" style="margin-top:0.5rem;">Tu cita del <strong>'+fmtFecha(c.fecha)+'</strong> a las <strong>'+esc(c.hora)+'</strong> ha sido cancelada.<br><br>Si necesitas volver a reservar, hazlo cuando quieras desde la web. ¡Hasta pronto! 💕</div>'
       +'<a href="https://wa.me/'+WHATSAPP+'?text='+waMsg+'" target="_blank" class="btn-primary" style="display:block;margin-top:1.5rem;text-decoration:none;text-align:center;">💬 Avisar por WhatsApp</a>'
       +'<a class="back-link" href="reservas.html">Reservar nueva cita</a>'
       +'</div>';

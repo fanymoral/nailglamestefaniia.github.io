@@ -608,6 +608,51 @@ function renderClientas() {
 function minsToTime(m) { return pad(Math.floor(m/60))+':'+pad(m%60); }
 function timeToMinsAdmin(t) { var p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]||0); }
 
+// Servicios (los mismos que en reservas.html: si cambias precios allí, cámbialos también aquí)
+var SERVICIOS = [
+  {id:'semi', name:'Semipermanente', duration:60, price:'20€', grupo:'Manos'},
+  {id:'gel', name:'Refuerzo con Gel', duration:60, price:'22€', grupo:'Manos'},
+  {id:'acrigel', name:'Acrigel', duration:90, price:'30€', grupo:'Manos'},
+  {id:'relleno-acri', name:'Relleno de Acrigel', duration:90, price:'27€', grupo:'Manos'},
+  {id:'pies', name:'Pies', duration:30, price:'18€', grupo:'Pies'},
+  {id:'pedicura', name:'Pedicura Spa', duration:45, price:'30€', grupo:'Pies'},
+  {id:'deco-basic', name:'Decoración básica', duration:0, price:'2€', grupo:'Extras'},
+  {id:'deco-mid', name:'Decoración media', duration:0, price:'3€', grupo:'Extras'},
+  {id:'deco-full', name:'Nail art completo', duration:30, price:'7€', grupo:'Extras'},
+  {id:'ret-semi', name:'Retirada Semipermanente', duration:30, price:'7€', grupo:'Extras'},
+  {id:'ret-acri', name:'Retirada Acrigel', duration:30, price:'10€', grupo:'Extras'}
+];
+function svcIdsDeTexto(texto) {
+  var partes = String(texto||'').split(' + ').map(function(x){ return x.trim(); });
+  return SERVICIOS.filter(function(s){ return partes.indexOf(s.name) >= 0; }).map(function(s){ return s.id; });
+}
+function svcSeleccionados() {
+  return SERVICIOS.filter(function(s){ return (app.svcSel||[]).indexOf(s.id) >= 0; });
+}
+function renderCambioServicio(c) {
+  var sel = svcSeleccionados();
+  var durAuto = sel.reduce(function(a,s){ return a+s.duration; },0);
+  var dur = app.svcDur != null ? app.svcDur : durAuto;
+  var precio = sel.reduce(function(a,s){ return a+parsePrice(s.price); },0);
+  var grupos = ['Manos','Pies','Extras'].map(function(g){
+    return '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--warm-gray);margin-top:0.4rem;">'+g+'</div>'
+      + SERVICIOS.filter(function(s){ return s.grupo===g; }).map(function(s){
+        return '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;padding:0.25rem 0;cursor:pointer;">'
+          +'<input type="checkbox" class="svc-check" data-svcid="'+s.id+'" '+((app.svcSel||[]).indexOf(s.id)>=0?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose);">'
+          +'<span style="flex:1">'+s.name+'</span><span style="color:var(--warm-gray);font-size:0.75rem;">'+(s.duration?s.duration+' min · ':'')+s.price+'</span></label>';
+      }).join('');
+  }).join('');
+  return '<div style="background:var(--light-gray);border-radius:10px;padding:1rem;display:flex;flex-direction:column;gap:0.3rem;">'
+    +'<div style="font-size:0.8rem;font-weight:500;color:var(--espresso)">Servicio de la cita:</div>'
+    +grupos
+    +'<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.6rem;font-size:0.85rem;">Duración <input type="number" id="svcDurInput" min="0" step="15" value="'+dur+'" style="width:80px;border:1.5px solid var(--light-gray);border-radius:8px;padding:0.4rem;font-family:DM Sans,sans-serif;"> min</div>'
+    +'<div style="font-size:0.85rem;margin-top:0.2rem;">Precio: <strong style="color:var(--rose)">'+precio+'€</strong></div>'
+    +'<div style="display:flex;gap:0.5rem;margin-top:0.6rem;">'
+    +'<button id="svcSaveBtn" style="flex:1;padding:0.7rem;background:var(--espresso);color:var(--cream);border:none;border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;" '+(sel.length?'':'disabled')+'>Guardar servicio</button>'
+    +'<button id="svcCancelBtn" style="padding:0.7rem 1rem;background:none;border:1.5px solid var(--warm-gray);color:var(--warm-gray);border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;">Cancelar</button>'
+    +'</div></div>';
+}
+
 var FULL_DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
 function renderHorarios() {
@@ -995,6 +1040,34 @@ function timeToMins(t) {
   if (!t) return 0;
   var p = t.split(':'); return parseInt(p[0])*60 + parseInt(p[1]||0);
 }
+// "9:00-14:00" o "9:00-14:00,16:00-19:00" → [[540,840],[960,1140]]
+function parseHorarioEspecial(horario) {
+  var rangos = [];
+  String(horario||'').split(',').forEach(function(parte){
+    var m = parte.trim().match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+    if (m) rangos.push([parseInt(m[1])*60+parseInt(m[2]), parseInt(m[3])*60+parseInt(m[4])]);
+  });
+  return rangos;
+}
+function citaDurMin(c) {
+  var d = parseInt(c.DurMin) || 0;
+  if (!d) d = parseInt(c['Duración'] || c.Duracion || '') || 60;
+  return d;
+}
+// Citas activas que se solapan con [fecha, hora, duración], sin contar la propia cita
+function citasSolapadas(fecha, hora, dur, excluirId) {
+  var ini = timeToMins(hora), fin = ini + dur;
+  return app.citas.filter(function(c){
+    if (c.Estado === 'cancelada' || c.Fecha !== fecha || String(c.ID) === String(excluirId)) return false;
+    var cIni = timeToMins(c.Hora), cFin = cIni + citaDurMin(c);
+    return ini < cFin && fin > cIni;
+  });
+}
+function avisoSolape(cita, fecha, hora) {
+  var otras = citasSolapadas(fecha, hora, citaDurMin(cita), cita.ID);
+  if (!otras.length) return '';
+  return '\n\n⚠️ OJO: se solapa con '+otras.map(function(o){ return o.Nombre+' ('+o.Hora+')'; }).join(', ')+'.';
+}
 
 function renderAgenda() {
   var days = getWeekDates(app.weekOffset);
@@ -1017,15 +1090,10 @@ function renderAgenda() {
     var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
     var especial = app.diasEspeciales && app.diasEspeciales.find(function(e){ return e.Fecha === ds; });
     if (especial && especial.Horario) {
-      var parts = especial.Horario.split('-');
-      if (parts.length === 2) {
-        var eStart = timeToMins(parts[0].trim());
-        var eEnd = timeToMins(parts[1].trim());
-        if (eStart && eEnd) {
-          minMins = Math.min(minMins, Math.floor(eStart/30)*30);
-          maxMins = Math.max(maxMins, Math.ceil(eEnd/30)*30);
-        }
-      }
+      parseHorarioEspecial(especial.Horario).forEach(function(r){
+        minMins = Math.min(minMins, Math.floor(r[0]/30)*30);
+        maxMins = Math.max(maxMins, Math.ceil(r[1]/30)*30);
+      });
     }
   });
   if (minMins === 24*60) { minMins = 16*60; maxMins = 20*60+30; }
@@ -1069,11 +1137,7 @@ function renderAgenda() {
       var especial = !isBlocked && app.diasEspeciales && app.diasEspeciales.find(function(e){ return e.Fecha === ds; });
       var isEspecialOpen = false;
       if (especial && especial.Horario) {
-        var eParts = especial.Horario.split('-');
-        if (eParts.length === 2) {
-          var eS = timeToMins(eParts[0].trim()), eE = timeToMins(eParts[1].trim());
-          if (eS && eE && m30 >= eS && m30 < eE) isEspecialOpen = true;
-        }
+        isEspecialOpen = parseHorarioEspecial(especial.Horario).some(function(r){ return m30 >= r[0] && m30 < r[1]; });
       }
       if (isEspecialOpen) isOpen = true;
       var cls = 'agenda-cell' + (!isOpen ? ' closed' : '') + (isBlocked ? ' blocked' : '') + (isEspecialOpen ? ' especial-open' : '');
@@ -1368,6 +1432,8 @@ function renderModal() {
     +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReminder+'" target="_blank" class="btn-wa" style="justify-content:center;padding:0.8rem;">Enviar recordatorio</a>':'')
     +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReview+'" target="_blank" class="btn-wa" style="background:#E8829F;justify-content:center;padding:0.8rem;">Pedir reseña</a>':'')
     +(!isCancelled&&!isCompleted?'<button class="btn-done" id="modalDoneBtn" style="padding:0.8rem;">✓ Marcar como completada</button>':'')
+    +(!isCancelled?'<button id="modalSvcBtn" style="padding:0.8rem;background:none;border:1.5px solid var(--rose);color:var(--rose);border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.88rem;cursor:pointer;">💅 Cambiar servicio</button>':'')
+    +(app.svcEditId===c.ID?renderCambioServicio(c):'')
     +(!isCancelled?'<button id="modalRescheduleBtn" style="padding:0.8rem;background:none;border:1.5px solid var(--rose);color:var(--rose);border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.88rem;cursor:pointer;">📅 Cambiar fecha / hora</button>':'')
     +(app.rescheduling?'<div style="background:var(--light-gray);border-radius:10px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;">'
       +'<div style="font-size:0.8rem;font-weight:500;color:var(--espresso)">Nueva fecha y hora:</div>'
@@ -1471,7 +1537,7 @@ function bindEvents() {
       var newTime = cell.dataset.droptime;
       var cita = app.citas.find(function(c){ return String(c.ID)===String(dragId); });
       if (!cita || (cita.Fecha===newDate && cita.Hora===newTime)) return;
-      if (!confirm('¿Mover cita de '+cita.Nombre+' al '+fmtDate(newDate)+' a las '+newTime+'?')) return;
+      if (!confirm('¿Mover cita de '+cita.Nombre+' al '+fmtDate(newDate)+' a las '+newTime+'?'+avisoSolape(cita, newDate, newTime))) return;
       apiPatch('Citas','ID',cita.ID,{Fecha: newDate, Hora: newTime}).then(function(){
         var tel = (cita['Teléfono']||cita.Telefono||'').replace(/\D/g,'');
         var msg = encodeURIComponent('Hola '+cita.Nombre+'! Te informo de que tu cita ha sido cambiada al '+fmtDate(newDate)+' a las '+newTime+'. Si tienes alguna duda no dudes en escribirme. ¡Hasta pronto!');
@@ -1631,6 +1697,56 @@ function bindEvents() {
     completarCita(cita, function(){ app.modal=null; loadData(); });
   });
 
+  // Cambiar servicio
+  var msb = document.getElementById('modalSvcBtn');
+  if (msb) msb.addEventListener('click', function(){
+    if (app.svcEditId === app.modal.ID) { app.svcEditId = null; render(); return; }
+    app.svcEditId = app.modal.ID;
+    app.svcSel = svcIdsDeTexto(app.modal.Servicio);
+    app.svcDur = citaDurMin(app.modal);
+    render();
+  });
+  document.querySelectorAll('.svc-check').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      var id = cb.dataset.svcid;
+      app.svcSel = (app.svcSel||[]).filter(function(x){ return x !== id; });
+      if (cb.checked) app.svcSel.push(id);
+      app.svcDur = null; // recalcular la duración con los servicios nuevos
+      render();
+    });
+  });
+  var sdi = document.getElementById('svcDurInput');
+  if (sdi) sdi.addEventListener('change', function(){ app.svcDur = Math.max(0, parseInt(sdi.value)||0); });
+  var scb = document.getElementById('svcCancelBtn');
+  if (scb) scb.addEventListener('click', function(){ app.svcEditId = null; render(); });
+  var ssb = document.getElementById('svcSaveBtn');
+  if (ssb) ssb.addEventListener('click', function(){
+    var cita = app.modal;
+    var sel = svcSeleccionados();
+    if (!sel.length) { alert('Elige al menos un servicio'); return; }
+    var sdiNow = document.getElementById('svcDurInput');
+    var dur = sdiNow ? Math.max(0, parseInt(sdiNow.value)||0) : sel.reduce(function(a,s){ return a+s.duration; },0);
+    var otras = citasSolapadas(cita.Fecha, cita.Hora, dur || 30, cita.ID);
+    if (otras.length && !confirm('Con la nueva duración se solapa con '+otras.map(function(o){ return o.Nombre+' ('+o.Hora+')'; }).join(', ')+'. ¿Guardar igualmente?')) return;
+    var cambios = {
+      Servicio: sel.map(function(s){ return s.name; }).join(' + '),
+      Precio: sel.map(function(s){ return s.price; }).join(' + '),
+      'Duración': dur+' min',
+      DurMin: dur
+    };
+    ssb.textContent = 'Guardando...'; ssb.disabled = true;
+    apiPatch('Citas','ID',cita.ID,cambios).then(function(){
+      app.citas = app.citas.map(function(x){ return String(x.ID)===String(cita.ID) ? Object.assign({}, x, cambios) : x; });
+      app.modal = Object.assign({}, cita, cambios);
+      app.svcEditId = null;
+      render();
+      loadData();
+    }).catch(function(){
+      ssb.textContent = 'Guardar servicio'; ssb.disabled = false;
+      alert('No se ha podido guardar. Inténtalo de nuevo.');
+    });
+  });
+
   var mrb = document.getElementById('modalRescheduleBtn');
   if (mrb) mrb.addEventListener('click', function(){ app.rescheduling=true; render(); });
 
@@ -1643,6 +1759,8 @@ function bindEvents() {
     var newTime = document.getElementById('rescheduleTime').value;
     if (!newDate || !newTime) { alert('Elige fecha y hora'); return; }
     var cita = app.modal;
+    var aviso = avisoSolape(cita, newDate, newTime);
+    if (aviso && !confirm('¿Cambiar la cita igualmente?'+aviso)) return;
     rcfb.textContent = 'Guardando...'; rcfb.disabled = true;
     apiPatch('Citas','ID',cita.ID,{Fecha: newDate, Hora: newTime}).then(function(){
       // Abrir WhatsApp con aviso automático

@@ -965,6 +965,8 @@ function bind() {
     state.bonoShown=false; state.showDecoModal=false; state.showPayModal=false;
     state.bookingId=null; state.submitting=false;
     state.showWaitlist=false; state.waitlistDone=false;
+    // El calendario vuelve al mes actual
+    var hoyN=new Date(); state.month=hoyN.getMonth(); state.year=hoyN.getFullYear();
     render();
   });
   var bc=document.getElementById('btnConfirm');

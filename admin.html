@@ -705,6 +705,54 @@ function renderHorarios() {
 
 
 
+// Bonos que aparecen en las citas ("Bono: ..." en las notas) pero no en la ficha de la clienta
+function bonosSinFicha() {
+  var dig = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
+  var grupos = {};
+  app.citas.forEach(function(c){
+    if (c.Estado === 'cancelada') return;
+    var m = String(c.Notas||'').match(/Bono:\s*(Bono 3 [^.]+)\./);
+    if (!m) return;
+    var tel = dig(c['Teléfono']||c.Telefono);
+    var k = tel || (c.Nombre||'').toLowerCase();
+    if (!grupos[k]) grupos[k] = {nombre: c.Nombre||'', tel: c['Teléfono']||c.Telefono||'', tipo: m[1].trim(), usadas: 0, citas: 0};
+    grupos[k].citas++;
+    if (c.Estado === 'completada') grupos[k].usadas++;
+  });
+  return Object.keys(grupos).map(function(k){ return grupos[k]; }).filter(function(g){
+    return !app.clientas.some(function(cl){
+      var mismo = (g.tel && dig(cl['Teléfono']) === dig(g.tel)) || (cl.Nombre||'').toLowerCase() === g.nombre.toLowerCase();
+      return mismo && cl.Bono;
+    });
+  });
+}
+function renderBonosSinFicha() {
+  var lista = bonosSinFicha();
+  if (!lista.length) return '';
+  app._bonosSinFicha = lista;
+  return '<div class="block-section" style="border:1.5px solid #FFCC00;background:#FFFBEA;">'
+    +'<div class="block-title">⚠️ Bonos sin apuntar en la ficha<br><small style="font-family:DM Sans,sans-serif;font-size:0.78rem;color:var(--warm-gray);font-weight:300">Reservaron con bono, pero el bono no está en su ficha de clienta</small></div>'
+    +'<div class="citas-list" style="margin-top:0.8rem;">'+lista.map(function(g,i){
+      var quedan = Math.max(0, 3 - g.usadas);
+      return '<div class="cita-item" style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">'
+        +'<div><strong>'+esc(g.nombre)+'</strong> · '+esc(g.tel)+'<br><span style="font-size:0.8rem;color:var(--warm-gray);">'+esc(g.tipo)+' · '+g.citas+' cita'+(g.citas!==1?'s':'')+' con bono · le quedan '+quedan+'</span></div>'
+        +'<button data-recbono="'+i+'" style="background:var(--espresso);color:var(--cream);border:none;border-radius:8px;padding:0.5rem 0.8rem;font-size:0.78rem;cursor:pointer;font-family:DM Sans,sans-serif;white-space:nowrap;">Apuntar bono</button>'
+        +'</div>';
+    }).join('')+'</div>'
+    +(lista.length>1?'<button id="recBonosTodos" style="margin-top:0.8rem;width:100%;padding:0.6rem;background:none;border:1.5px solid var(--espresso);border-radius:8px;cursor:pointer;font-family:DM Sans,sans-serif;">Apuntar todos ('+lista.length+')</button>':'')
+    +'</div>';
+}
+function apuntarBono(g) {
+  var dig = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
+  var ses = String(Math.max(0, 3 - g.usadas));
+  var existe = app.clientas.find(function(cl){
+    return (g.tel && dig(cl['Teléfono']) === dig(g.tel)) || (cl.Nombre||'').toLowerCase() === g.nombre.toLowerCase();
+  });
+  if (existe) return apiPatch('Clientas','Nombre',existe.Nombre,{Bono: g.tipo, BonoSesiones: ses});
+  var hoy = new Date();
+  return apiPost('Clientas',{Nombre: g.nombre, 'Teléfono': g.tel, Bono: g.tipo, BonoSesiones: ses, 'Añadida el': pad(hoy.getDate())+'/'+pad(hoy.getMonth()+1)+'/'+hoy.getFullYear()});
+}
+
 function renderBonos() {
   var nowD = new Date();
   var nowMins = nowD.getHours()*60 + nowD.getMinutes();
@@ -715,7 +763,7 @@ function renderBonos() {
     .sort(function(a,b){ return (a.Nombre||'').localeCompare(b.Nombre||''); });
 
   if (!conBono.length) {
-    return '<div class="block-section"><div class="block-title">🎟️ Bonos activos</div><div class="no-citas">No hay clientas con bono activo en este momento.</div></div>';
+    return renderBonosSinFicha()+'<div class="block-section"><div class="block-title">🎟️ Bonos activos</div><div class="no-citas">No hay clientas con bono activo en este momento.</div></div>';
   }
 
   var items = conBono.map(function(c){
@@ -776,7 +824,7 @@ function renderBonos() {
       +'</div>';
   }).join('');
 
-  return '<div class="block-section">'
+  return renderBonosSinFicha()+'<div class="block-section">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">'
     +'<div class="block-title">🎟️ Bonos activos<br><small style="font-family:DM Sans,sans-serif;font-size:0.78rem;color:var(--warm-gray);font-weight:300">'+conBono.length+' clienta'+(conBono.length!==1?'s':'')+' con bono en curso</small></div>'
     +'<button id="recargarBonosBtn" style="background:none;border:1.5px solid var(--light-gray);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.75rem;cursor:pointer;color:var(--warm-gray);font-family:DM Sans,sans-serif;">🔄 Actualizar</button>'
@@ -1465,7 +1513,7 @@ function bindEvents() {
   // Login
   var lb = document.getElementById('loginBtn');
   if (lb) lb.addEventListener('click', function(){
-    var pw = document.getElementById('pwInput').value;
+    var pw = document.getElementById('pwInput').value.trim();
     var err = document.getElementById('loginErr');
     lb.disabled = true; lb.textContent = 'Comprobando...'; err.textContent = '';
     comprobarClave(pw).then(function(ok){
@@ -1688,6 +1736,21 @@ function bindEvents() {
       render();
       apiPatch('Clientas','Nombre',nombre,{BonoSesiones:'3'}).catch(function(){ loadData(); });
     });
+  });
+  document.querySelectorAll('[data-recbono]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var g = (app._bonosSinFicha||[])[parseInt(btn.dataset.recbono)];
+      if (!g) return;
+      btn.disabled = true; btn.textContent = 'Guardando...';
+      apuntarBono(g).then(function(){ loadData(); }).catch(function(){ alert('No se ha podido guardar. Inténtalo otra vez.'); loadData(); });
+    });
+  });
+  var rbt = document.getElementById('recBonosTodos');
+  if (rbt) rbt.addEventListener('click', function(){
+    var lista = (app._bonosSinFicha||[]).slice();
+    rbt.disabled = true; rbt.textContent = 'Guardando...';
+    var i = 0;
+    (function sig(){ if (i >= lista.length) return loadData(); apuntarBono(lista[i++]).then(sig, sig); })();
   });
   document.querySelectorAll('[data-esperaidx]').forEach(function(btn){
     btn.addEventListener('click', function(){

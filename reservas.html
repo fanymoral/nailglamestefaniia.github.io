@@ -283,6 +283,7 @@ function showLoading(show, msg) {
   }
 }
 
+function fmtCorta(f){ var d=new Date(f+'T12:00:00'); return d.getDate()+' de '+['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][d.getMonth()]; }
 function pad(n){ return String(n).padStart(2,'0'); }
 function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 // Duración total real de la cita (incluye +15 min si hay más de 4 uñas rotas)
@@ -928,25 +929,24 @@ function bind() {
     b3.disabled = true; b3.textContent = 'Un momento...';
     fetchJSON(SHEETDB_URL+'?_action=mias&tel='+encodeURIComponent(phoneDigits), 2, {allowObject:true}).then(function(mias){
     b3.disabled = false; b3.textContent = 'Revisar cita →';
-    var misCitas = Array.isArray(mias) ? [] : (mias.citas || []);
     // Sesión del bono: 3 = no ha usado ninguna (paga el bono), 2 o 1 = ya pagado
     state.clientaBonoSesiones = -1;
     if (state.hasBono && mias && mias.bono && mias.bono.tipo === state.bonoType) {
       state.clientaBonoSesiones = mias.bono.sesiones;
     }
-    var existing = misCitas.find(function(b){
+    // Aviso si ya tiene alguna cita ese mismo mes (esta sería la 2ª o más)
+    var delMes = (Array.isArray(mias) ? [] : (mias.citas || [])).filter(function(b){
       var bTel = (b['Teléfono']||b.Telefono||'').replace(/\D/g,'').slice(-9);
-      // Solo avisamos si la cita existente está en el mismo mes Y no está cancelada Y es futura
       return bTel === phoneDigits.slice(-9)
         && b.Fecha >= todayStr
         && b.Estado !== 'cancelada'
-        && b.Fecha.substring(0,7) === selectedYearMonth;
+        && String(b.Fecha).substring(0,7) === selectedYearMonth;
     });
-
-    if (existing) {
-      var msg = '⚠️ Ya tienes una cita este mes el '+existing.Fecha+' a las '+existing.Hora+' ('+existing.Servicio+').\n\n'
-        +'Si quieres cambiarla, primero cancela esa cita escribiéndome por WhatsApp, y luego reserva la nueva.\n\n'
-        +'¿Quieres continuar igualmente y reservar otra cita adicional este mes?';
+    if (delMes.length >= 1) {
+      var msg = (delMes.length === 1
+          ? '⚠️ Ya tienes una cita este mes: el '+fmtCorta(delMes[0].Fecha)+' a las '+delMes[0].Hora+'.'
+          : '⚠️ Ya tienes '+delMes.length+' citas este mes.')
+        +'\n\n¿Quieres reservar otra cita más este mes?';
       if (!confirm(msg)) return;
     }
 
@@ -1092,18 +1092,14 @@ function renderWelcomeModal() {
     +'</div></div></div>';
 }
 
+// La bienvenida sale siempre al abrir la página (tiene el enlace para cancelar o cambiar cita)
 function checkWelcome() {
-  try {
-    if (!localStorage.getItem('nailglam_visited')) {
-      var div = document.createElement('div');
-      div.innerHTML = renderWelcomeModal();
-      document.body.appendChild(div.firstChild);
-      document.getElementById('closeWelcomeBtn').addEventListener('click', function(){
-        try { localStorage.setItem('nailglam_visited', '1'); } catch(e) {}
-        document.getElementById('welcomeModalBg').remove();
-      });
-    }
-  } catch(e) { /* localStorage not available, skip */ }
+  var div = document.createElement('div');
+  div.innerHTML = renderWelcomeModal();
+  document.body.appendChild(div.firstChild);
+  document.getElementById('closeWelcomeBtn').addEventListener('click', function(){
+    document.getElementById('welcomeModalBg').remove();
+  });
 }
 
 render();

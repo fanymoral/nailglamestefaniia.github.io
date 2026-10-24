@@ -422,7 +422,8 @@ function loadData(cb) {
   app.loading=true; app.loadError=false; render();
 
   // Mostrar caché inmediatamente si existe, mientras llegan los datos frescos
-  var cached = loadCache();
+  // (solo la primera vez: después la caché es más vieja que lo que ya hay en pantalla)
+  var cached = app._cargado ? null : loadCache();
   if (cached) {
     applyResults(cached);
     app.loading=false;
@@ -448,6 +449,7 @@ function loadData(cb) {
   Promise.all([citasP, bloquP, clientP, esperaP, horariosP, especP]).then(function(results){
     clearTimeout(tardandoTimer);
     applyResults(results);
+    app._cargado = true;
     saveCache(results); // guardar en caché para la próxima vez
     app.loading=false; app.loadingMsg=''; render();
     if(cb) cb();
@@ -1114,7 +1116,7 @@ function renderAdmin() {
     +'<div class="stat-card"><div class="stat-label">Días bloqueados</div><div class="stat-value">'+app.blockedDays.length+'</div><div class="stat-sub">Festivos / descanso</div></div>'
     +'</div>';
 
-  var modalHtml = app.modal ? renderModal() : '';
+  var modalHtml = app.modal ? renderModal() : (app.nuevaCita ? renderNuevaCita() : '');
 
   return '<header><div class="header-title">Nail Glam <span>Estefania</span> · Admin</div><button class="logout-btn" id="logoutBtn">Cerrar sesión</button></header>'
     +'<div class="container">'
@@ -1211,6 +1213,15 @@ function renderAgenda() {
         maxMins = Math.max(maxMins, Math.ceil(r[1]/30)*30);
       });
     }
+  });
+  // Citas fuera de horario (metidas a mano) también tienen que verse
+  var semanaStr = days.map(function(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); });
+  citasActivas.forEach(function(c){
+    if (semanaStr.indexOf(c.Fecha) < 0) return;
+    var ini = timeToMins(c.Hora);
+    if (!(ini >= 0)) return;
+    minMins = Math.min(minMins, Math.floor(ini/30)*30);
+    maxMins = Math.max(maxMins, Math.ceil((ini + (citaDurMin(c)||30))/30)*30);
   });
   if (minMins === 24*60) { minMins = 16*60; maxMins = 20*60+30; }
   var minHour = Math.floor(minMins/60);
@@ -1330,6 +1341,7 @@ function renderAgenda() {
     +'<div style="display:flex;gap:1rem;margin-bottom:0.8rem;flex-wrap:wrap;align-items:center;">'
     +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">📋 <strong>'+weekCitas.length+'</strong> citas esta semana</div>'
     +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">💰 <strong>'+Math.round(weekIncome)+'€</strong> ingresos estimados</div>'
+    +'<button id="nuevaCitaBtn" style="background:var(--espresso);color:var(--cream);border:none;border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;cursor:pointer;font-family:DM Sans,sans-serif;">➕ Añadir clienta</button>'
     +fsBtn
     +'</div>'
     +'<div class="agenda-wrap"><div class="agenda-table">'
@@ -1583,6 +1595,47 @@ function renderModalAddBono(c) {
     +'</div>';
 }
 
+// Meter una cita a mano desde la agenda (a cualquier hora, aunque el día esté completo o cerrado)
+function abrirNuevaCita(fecha, hora) {
+  app.nuevaCita = {Nombre:'', Tel:'', Fecha: fecha, Hora: hora || '', Notas:''};
+  app.svcSel = []; app.svcDur = null;
+  render();
+}
+function renderNuevaCita() {
+  var n = app.nuevaCita;
+  var sel = svcSeleccionados();
+  var durAuto = sel.reduce(function(a,s){ return a+s.duration; },0);
+  var dur = app.svcDur != null ? app.svcDur : durAuto;
+  var precio = sel.reduce(function(a,s){ return a+parsePrice(s.price); },0);
+  var inp = 'style="width:100%;border:1.5px solid var(--light-gray);border-radius:8px;padding:0.6rem;font-family:DM Sans,sans-serif;font-size:0.9rem;box-sizing:border-box;background:var(--cream);"';
+  var grupos = ['Manos','Pies','Extras'].map(function(g){
+    return '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--warm-gray);margin-top:0.4rem;">'+g+'</div>'
+      + SERVICIOS.filter(function(s){ return s.grupo===g; }).map(function(s){
+        return '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;padding:0.2rem 0;cursor:pointer;">'
+          +'<input type="checkbox" class="svc-check" data-svcid="'+s.id+'" '+((app.svcSel||[]).indexOf(s.id)>=0?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose);">'
+          +'<span style="flex:1">'+s.name+'</span><span style="color:var(--warm-gray);font-size:0.75rem;">'+(s.duration?s.duration+' min · ':'')+s.price+'</span></label>';
+      }).join('');
+  }).join('');
+  return '<div class="modal-bg" id="ncBg"><div class="modal">'
+    +'<div class="modal-title">➕ Añadir clienta</div>'
+    +'<div style="font-size:0.78rem;color:var(--warm-gray);margin:-0.6rem 0 0.8rem;">Puedes ponerla a cualquier hora, aunque el día esté completo o cerrado.</div>'
+    +'<div style="display:flex;flex-direction:column;gap:0.5rem;">'
+    +'<input id="ncNombre" class="nc-campo" data-k="Nombre" placeholder="Nombre" value="'+esc(n.Nombre)+'" '+inp+'>'
+    +'<input id="ncTel" class="nc-campo" data-k="Tel" type="tel" placeholder="Teléfono" value="'+esc(n.Tel)+'" '+inp+'>'
+    +'<div style="display:flex;gap:0.5rem;">'
+    +'<input id="ncFecha" class="nc-campo" data-k="Fecha" type="date" value="'+esc(n.Fecha)+'" '+inp+'>'
+    +'<input id="ncHora" class="nc-campo" data-k="Hora" type="time" step="300" value="'+esc(n.Hora)+'" '+inp+'>'
+    +'</div>'
+    +'<div style="background:var(--light-gray);border-radius:10px;padding:0.8rem;">'+grupos
+    +'<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.6rem;font-size:0.85rem;">Duración <input type="number" id="svcDurInput" min="0" step="15" value="'+dur+'" style="width:80px;border:1.5px solid var(--light-gray);border-radius:8px;padding:0.4rem;font-family:DM Sans,sans-serif;"> min</div>'
+    +'<div style="font-size:0.85rem;margin-top:0.2rem;">Precio: <strong style="color:var(--rose)">'+precio+'€</strong></div>'
+    +'</div>'
+    +'<textarea id="ncNotas" class="nc-campo" data-k="Notas" placeholder="Notas (opcional)" rows="2" '+inp+'>'+esc(n.Notas)+'</textarea>'
+    +'<button id="ncGuardar" style="padding:0.8rem;background:var(--espresso);color:var(--cream);border:none;border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.9rem;cursor:pointer;">Guardar cita</button>'
+    +'<button id="ncCerrar" class="modal-close" style="padding:0.8rem;">Cancelar</button>'
+    +'</div></div></div>';
+}
+
 function renderModal() {
   var c = app.modal;
   var tel = (c['Teléfono']||c.Telefono||'').replace(/[^0-9]/g,'');
@@ -1716,7 +1769,53 @@ function bindEvents() {
       if (found) { app.rescheduling=false; app.modal = found; render(); }
     });
   });
+  // Añadir clienta
+  var ncb = document.getElementById('nuevaCitaBtn');
+  if (ncb) ncb.addEventListener('click', function(){
+    var d = getWeekDates(app.weekOffset)[0], hoy = new Date();
+    var ref = (app.weekOffset === 0) ? hoy : d;
+    abrirNuevaCita(ref.getFullYear()+'-'+pad(ref.getMonth()+1)+'-'+pad(ref.getDate()), '');
+  });
+  document.querySelectorAll('.nc-campo').forEach(function(el){
+    el.addEventListener('input', function(){ if (app.nuevaCita) app.nuevaCita[el.dataset.k] = el.value; });
+  });
+  var ncc = document.getElementById('ncCerrar');
+  if (ncc) ncc.addEventListener('click', function(){ app.nuevaCita = null; render(); });
+  var ncbg = document.getElementById('ncBg');
+  if (ncbg) ncbg.addEventListener('click', function(e){ if (e.target === ncbg) { app.nuevaCita = null; render(); } });
+  var ncg = document.getElementById('ncGuardar');
+  if (ncg) ncg.addEventListener('click', function(){
+    var n = app.nuevaCita, sel = svcSeleccionados();
+    var durEl = document.getElementById('svcDurInput');
+    var dur = durEl ? Math.max(0, parseInt(durEl.value)||0) : sel.reduce(function(a,s){ return a+s.duration; },0);
+    if (!n.Nombre.trim() || !n.Fecha || !n.Hora) { alert('Pon al menos el nombre, el día y la hora.'); return; }
+    if (!sel.length && !confirm('No has elegido ningún servicio. ¿Guardar igualmente?')) return;
+    var otras = citasSolapadas(n.Fecha, n.Hora, dur || 30, null);
+    if (otras.length && !confirm('Se solapa con '+otras.map(function(o){ return o.Nombre+' ('+o.Hora+')'; }).join(', ')+'. ¿Guardar igualmente?')) return;
+    var cita = {
+      ID: String(Date.now()), Fecha: n.Fecha, Hora: n.Hora,
+      Servicio: sel.map(function(s){ return s.name; }).join(' + '),
+      Precio: sel.map(function(s){ return s.price; }).join(' + '),
+      'Duración': (dur||30)+' min', DurMin: dur||30,
+      Nombre: n.Nombre.trim(), 'Teléfono': n.Tel.trim(),
+      Notas: (n.Notas||'').trim() ? n.Notas.trim()+' (Añadida desde el panel)' : 'Añadida desde el panel',
+      'Reservada el': new Date().toLocaleString('es-ES'), Estado: 'confirmada'
+    };
+    ncg.disabled = true; ncg.textContent = 'Guardando...';
+    apiPost('Citas', cita).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(function(resp){
+      if (resp && resp.error) throw new Error(resp.error);
+      app.citas = app.citas.concat([cita]);
+      app.nuevaCita = null; render();
+      loadData();
+    }).catch(function(){ alert('No se ha podido guardar. Inténtalo otra vez.'); ncg.disabled = false; ncg.textContent = 'Guardar cita'; });
+  });
+
   document.querySelectorAll('[data-dropdate]').forEach(function(cell){
+    // Pulsar un hueco vacío de la agenda → añadir clienta a ese día y hora
+    cell.addEventListener('click', function(e){
+      if (e.target !== cell) return;
+      abrirNuevaCita(cell.dataset.dropdate, cell.dataset.droptime);
+    });
     cell.addEventListener('dragover', function(e){ e.preventDefault(); cell.style.background='rgba(232,130,159,0.15)'; });
     cell.addEventListener('dragleave', function(){ cell.style.background=''; });
     cell.addEventListener('drop', function(e){
@@ -1932,12 +2031,28 @@ function bindEvents() {
     if (!tipo) { alert('Elige el tipo de bono.'); return; }
     mbg.disabled = true; mbg.textContent = 'Guardando...';
     var notas = String(cita.Notas||'').replace(/Bono:\s*Bono 3 [^.]+\.\s*/,'');
-    apuntarBono({nombre: cita.Nombre||'', tel: cita['Teléfono']||cita.Telefono||'', tipo: tipo, usadas: 0}).then(function(){
+    // Si la cita ya está completada y es la 1ª sesión, esa sesión ya está gastada
+    var usadas = (estaCita && cita.Estado === 'completada') ? 1 : 0;
+    var g = {nombre: cita.Nombre||'', tel: cita['Teléfono']||cita.Telefono||'', tipo: tipo, usadas: usadas};
+    var existe = elegirClientaBono(cita) || (app.clientas||[]).find(function(x){
+      var d = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
+      return (g.tel && d(x['Teléfono']) === d(g.tel)) || (x.Nombre||'').toLowerCase() === g.nombre.toLowerCase();
+    });
+    apuntarBono(g).then(function(){
       // Marcar esta cita como sesión de bono (para el precio y para descontarla al completarla)
       if (estaCita) return apiPatch('Citas','ID',cita.ID,{Notas: 'Bono: '+tipo+'. '+notas});
     }).then(function(){
       app.modalAddBono = null;
-      if (estaCita) app.modal = Object.assign({}, cita, {Notas: 'Bono: '+tipo+'. '+notas});
+      // Actualizar ya en el panel (sin esperar a recargar), por si se marca completada enseguida
+      var ses = String(3 - usadas);
+      if (existe) app.clientas = app.clientas.map(function(x){ return x === existe ? Object.assign({}, x, {Bono: tipo, BonoSesiones: ses}) : x; });
+      else app.clientas = app.clientas.concat([{Nombre: g.nombre, 'Teléfono': g.tel, Bono: tipo, BonoTipo: tipo, BonoSesiones: ses}]);
+      if (estaCita) {
+        var nueva = Object.assign({}, cita, {Notas: 'Bono: '+tipo+'. '+notas});
+        app.citas = app.citas.map(function(x){ return String(x.ID) === String(cita.ID) ? nueva : x; });
+        app.modal = nueva;
+      }
+      render();
       loadData();
     }).catch(function(){ alert('No se ha podido guardar. Inténtalo otra vez.'); mbg.disabled = false; mbg.textContent = 'Guardar bono'; });
   });

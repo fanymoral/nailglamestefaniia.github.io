@@ -51,6 +51,9 @@
   .stat-sub { font-size:0.72rem; color:var(--warm-gray); margin-top:0.2rem; }
 
   /* AGENDA SEMANAL */
+  .dinero { filter: blur(7px); transition: filter 0.2s; user-select:none; }
+  .dinero.visible { filter:none; user-select:auto; }
+  .ver-dinero-btn { background:none; border:none; cursor:pointer; font-size:1rem; padding:0 0.2rem; vertical-align:middle; }
   .week-nav { display:flex; align-items:center; gap:1rem; margin-bottom:1rem; }
   .week-title { font-family:'Cormorant Garamond',serif; font-size:1.2rem; flex:1; text-align:center; }
   .nav-btn { background:none; border:1.5px solid var(--light-gray); border-radius:8px; width:34px; height:34px; cursor:pointer; font-size:1rem; color:var(--espresso); display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
@@ -1020,7 +1023,7 @@ function renderStats() {
     +'<select class="stats-month-select" id="statsMonthSelect">'+monthOptions+'</select>'
     +'<div style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1.5rem">'
     +'<div><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray)">Citas este mes</div><div class="stats-big-number">'+citasMes.length+'</div></div>'
-    +'<div><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray)">Ingresos estimados</div><div class="stats-big-number">'+totalIngresos.toFixed(0)+'€</div></div>'
+    +'<div><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray)">Ingresos estimados</div><div class="stats-big-number"><span class="dinero'+(app.verDinero?' visible':'')+'">'+totalIngresos.toFixed(0)+'€</span> '+btnVerDinero()+'</div></div>'
     +'</div>'
     +'<div class="block-title" style="font-size:1.1rem;margin-bottom:1rem">Servicios más solicitados</div>'
     +svcBarsHtml
@@ -1340,7 +1343,7 @@ function renderAgenda() {
     +'</div>'
     +'<div style="display:flex;gap:1rem;margin-bottom:0.8rem;flex-wrap:wrap;align-items:center;">'
     +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">📋 <strong>'+weekCitas.length+'</strong> citas esta semana</div>'
-    +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">💰 <strong>'+Math.round(weekIncome)+'€</strong> ingresos estimados</div>'
+    +'<div style="background:var(--white);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;box-shadow:0 2px 8px rgba(42,26,20,0.06);">💰 <strong class="dinero'+(app.verDinero?' visible':'')+'">'+Math.round(weekIncome)+'€</strong> ingresos estimados '+btnVerDinero()+'</div>'
     +'<button id="nuevaCitaBtn" style="background:var(--espresso);color:var(--cream);border:none;border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;cursor:pointer;font-family:DM Sans,sans-serif;">➕ Añadir clienta</button>'
     +fsBtn
     +'</div>'
@@ -1636,6 +1639,11 @@ function renderNuevaCita() {
     +'</div></div></div>';
 }
 
+// Ingresos borrosos hasta que pulse el ojo (se vuelven a ocultar al recargar)
+function btnVerDinero() {
+  return '<button class="ver-dinero-btn" title="'+(app.verDinero?'Ocultar':'Ver')+' ingresos">'+(app.verDinero?'🙈':'👁️')+'</button>';
+}
+
 function renderModal() {
   var c = app.modal;
   var tel = (c['Teléfono']||c.Telefono||'').replace(/[^0-9]/g,'');
@@ -1769,6 +1777,10 @@ function bindEvents() {
       if (found) { app.rescheduling=false; app.modal = found; render(); }
     });
   });
+  document.querySelectorAll('.ver-dinero-btn').forEach(function(b){
+    b.addEventListener('click', function(e){ e.stopPropagation(); app.verDinero = !app.verDinero; render(); });
+  });
+
   // Añadir clienta
   var ncb = document.getElementById('nuevaCitaBtn');
   if (ncb) ncb.addEventListener('click', function(){

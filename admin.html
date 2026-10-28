@@ -993,6 +993,8 @@ function renderStats() {
   var citasMes = citasActivas.filter(function(c){ return (c.Fecha||'').substring(0,7) === selMonth; });
 
   var totalIngresos = citasMes.reduce(function(sum, c){ return sum + ingresoCita(c); }, 0);
+  var porPago = {Bizum:0, Efectivo:0, '':0};
+  citasMes.forEach(function(c){ porPago[metodoPago(c)] += ingresoCita(c); });
 
   // Service counts
   var svcCounts = {};
@@ -1023,7 +1025,9 @@ function renderStats() {
     +'<select class="stats-month-select" id="statsMonthSelect">'+monthOptions+'</select>'
     +'<div style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1.5rem">'
     +'<div><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray)">Citas este mes</div><div class="stats-big-number">'+citasMes.length+'</div></div>'
-    +'<div><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray)">Ingresos estimados</div><div class="stats-big-number"><span class="dinero'+(app.verDinero?' visible':'')+'">'+totalIngresos.toFixed(0)+'€</span> '+btnVerDinero()+'</div></div>'
+    +'<div><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--warm-gray)">Ingresos estimados</div><div class="stats-big-number"><span class="dinero'+(app.verDinero?' visible':'')+'">'+totalIngresos.toFixed(0)+'€</span> '+btnVerDinero()+'</div>'
+      +'<div style="font-size:0.85rem;color:var(--warm-gray);margin-top:0.3rem" class="dinero'+(app.verDinero?' visible':'')+'">📱 Bizum: '+porPago.Bizum.toFixed(0)+'€ · 💵 Efectivo: '+porPago.Efectivo.toFixed(0)+'€'+(porPago['']?' · Sin marcar: '+porPago[''].toFixed(0)+'€':'')+'</div>'
+      +'</div>'
     +'</div>'
     +'<div class="block-title" style="font-size:1.1rem;margin-bottom:1rem">Servicios más solicitados</div>'
     +svcBarsHtml
@@ -1304,7 +1308,7 @@ function renderAgenda() {
           : durMin+'min';
         return '<div class="agenda-appt '+svcCls+'" data-cid="'+esc(c.ID)+'" draggable="true" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;'+extraStyle+'">'
           +'<div class="aa-time">'+esc(c.Hora)+(hasBono?' 🎟️':'')+'<span class="aa-dur"> · '+durLabel+'</span></div>'
-          +'<div class="aa-name">'+esc(c.Nombre)+'</div>'
+          +'<div class="aa-name">'+esc(c.Nombre)+(metodoPago(c)==='Bizum'?' 📱':'')+'</div>'
           +'<div class="aa-service">'+esc(c.Servicio)+'</div>'
           +'</div>';
       }).join('');
@@ -1640,6 +1644,21 @@ function renderNuevaCita() {
 }
 
 // Ingresos borrosos hasta que pulse el ojo (se vuelven a ocultar al recargar)
+function metodoPago(c) {
+  var m = /Pago:\s*(Bizum|Efectivo)/i.exec(String(c.Notas||''));
+  return m ? (m[1].toLowerCase()==='bizum' ? 'Bizum' : 'Efectivo') : '';
+}
+function notasSinPago(n) {
+  return String(n||'').replace(/Pago:\s*(Bizum|Efectivo)\.?\s*/gi,'').trim();
+}
+function renderPago(c) {
+  var p = metodoPago(c);
+  function b(m, txt) {
+    var on = p===m;
+    return '<button class="pago-btn" data-pago="'+m+'" style="padding:0.35rem 0.7rem;border-radius:8px;font-family:DM Sans,sans-serif;font-size:0.8rem;cursor:pointer;border:1.5px solid var(--rose);'+(on?'background:var(--rose);color:#fff;':'background:none;color:var(--rose);')+'">'+txt+'</button>';
+  }
+  return '<div class="modal-row"><span class="modal-label">Pagado con</span><span style="display:flex;gap:0.4rem">'+b('Bizum','📱 Bizum')+b('Efectivo','💵 Efectivo')+'</span></div>';
+}
 function btnVerDinero() {
   return '<button class="ver-dinero-btn" title="'+(app.verDinero?'Ocultar':'Ver')+' ingresos">'+(app.verDinero?'🙈':'👁️')+'</button>';
 }
@@ -1660,7 +1679,8 @@ function renderModal() {
     +'<div class="modal-row"><span class="modal-label">Teléfono</span><span>'+tel+'</span></div>'
     +bonoDeCita(c)
     +(!isCancelled ? renderModalAddBono(c) : '')
-    +(c.Notas?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+esc(c.Notas)+'</span></div>':'')
+    +(!isCancelled ? renderPago(c) : '')
+    +(notasSinPago(c.Notas)?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+esc(notasSinPago(c.Notas))+'</span></div>':'')
     +'<div class="modal-row"><span class="modal-label">Estado</span><span>'+(isCancelled?'❌ Cancelada':(isCompleted?'✅ Completada':'✓ Confirmada'))+'</span></div>'
     +'<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.2rem;">'
     +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReminder+'" target="_blank" class="btn-wa" style="justify-content:center;padding:0.8rem;">Enviar recordatorio</a>':'')
@@ -2024,6 +2044,21 @@ function bindEvents() {
   var mcb = document.getElementById('modalCancelBtn');
   if (mcb) mcb.addEventListener('click', function(){
     if (confirm('¿Cancelar esta cita?')){ cancelCita(app.modal.ID); app.modal=null; }
+  });
+  document.querySelectorAll('.pago-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var cita = app.modal, m = btn.getAttribute('data-pago');
+      var nuevo = metodoPago(cita)===m ? '' : m;
+      var notas = notasSinPago(cita.Notas);
+      if (nuevo) notas = 'Pago: '+nuevo+'. '+notas;
+      notas = notas.trim();
+      app.citas = app.citas.map(function(x){ return String(x.ID)===String(cita.ID) ? Object.assign({},x,{Notas:notas}) : x; });
+      app.modal = Object.assign({}, cita, {Notas:notas});
+      render();
+      apiPatch('Citas','ID',cita.ID,{Notas:notas}).then(function(r){ return r.json(); }).then(function(j){
+        if (!j || !j.updated) { alert('No se ha podido guardar el pago. Inténtalo otra vez.'); loadData(); }
+      }).catch(function(){ alert('No se ha podido guardar el pago. Inténtalo otra vez.'); loadData(); });
+    });
   });
   var mdb = document.getElementById('modalDoneBtn');
   if (mdb) mdb.addEventListener('click', function(){

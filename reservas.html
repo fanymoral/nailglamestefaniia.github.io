@@ -481,6 +481,9 @@ function render() {
   else if (state.step===4) app.innerHTML=renderStep4();
   else app.innerHTML=renderSuccess();
   bind();
+  // Al cambiar de paso, la pantalla empieza desde arriba
+  if (render._paso !== undefined && render._paso !== state.step) window.scrollTo(0,0);
+  render._paso = state.step;
 }
 
 function renderStep1() {

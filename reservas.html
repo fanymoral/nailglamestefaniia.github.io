@@ -961,6 +961,8 @@ function bind() {
   });
   var bk3=document.getElementById('back3');
   if (bk3) bk3.addEventListener('click',function(){ state.step=2; render(); });
+  var bk4=document.getElementById('back4');
+  if (bk4) bk4.addEventListener('click',function(){ state.showPayModal=false; state.step=3; render(); });
   var btnNew=document.getElementById('btnNew');
   if (btnNew) btnNew.addEventListener('click',function(){
     // Reset completo para una nueva reserva

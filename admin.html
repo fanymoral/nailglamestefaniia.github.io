@@ -768,7 +768,18 @@ function apuntarBono(g) {
   var existe = app.clientas.find(function(cl){
     return (g.tel && dig(cl['Teléfono']) === dig(g.tel)) || (cl.Nombre||'').toLowerCase() === g.nombre.toLowerCase();
   });
-  if (existe) return apiPatch('Clientas','Nombre',existe.Nombre,{Bono: g.tipo, BonoSesiones: ses});
+  if (existe) {
+    var pendientes = app.citas.filter(function(c){
+      var m = String(c.Notas||'').match(/Bono:\s*(Bono 3 [^.]+)\./);
+      return m && m[1].trim() !== g.tipo && c.Estado !== 'cancelada' && c.Estado !== 'completada'
+        && ((g.tel && dig(c['Teléfono']||c.Telefono) === dig(g.tel)) || (c.Nombre||'').toLowerCase() === g.nombre.toLowerCase());
+    });
+    return apiPatch('Clientas','Nombre',existe.Nombre,{Bono: g.tipo, BonoTipo: g.tipo, BonoSesiones: ses}).then(function(r){
+      return Promise.all(pendientes.map(function(c){
+        return apiPatch('Citas','ID',c.ID,{Notas: String(c.Notas).replace(/Bono:\s*Bono 3 [^.]+\./, 'Bono: '+g.tipo+'.')});
+      })).then(function(){ return r; });
+    });
+  }
   var hoy = new Date();
   return apiPost('Clientas',{Nombre: g.nombre, 'Teléfono': g.tel, Bono: g.tipo, BonoSesiones: ses, 'Añadida el': pad(hoy.getDate())+'/'+pad(hoy.getMonth()+1)+'/'+hoy.getFullYear()});
 }
@@ -908,10 +919,9 @@ function sesionesBono() {
   var grupos = {};
   app.citas.forEach(function(c){
     if (c.Estado === 'cancelada') return;
-    var m = String(c.Notas||'').match(/Bono:\s*(Bono 3 [^.]+)\./);
-    if (!m) return;
+    if (!/Bono:\s*Bono 3 [^.]+\./.test(String(c.Notas||''))) return;
     var tel = String(c['Teléfono']||c.Telefono||'').replace(/\D/g,'').slice(-9);
-    var k = (tel || String(c.Nombre||'').toLowerCase()) + '|' + m[1].trim();
+    var k = (tel || String(c.Nombre||'').toLowerCase()) + '|' + tipoBonoActual(c);
     (grupos[k] = grupos[k] || []).push(c);
   });
   var idx = {};
@@ -926,7 +936,7 @@ function ingresoCita(c) {
   var rotas = String(c.Notas||'').match(/(\d+)\s*uña\(s\) rota/);
   var extra = rotas ? parseInt(rotas[1], 10) : 0;
   var b = sesionesBono()[c.ID];
-  if (b) return b.n === 0 ? (BONOS_PRECIOS[b.tipo] || parsePrice(c.Precio)) + extra : 0;
+  if (b) return (b.n === 0 ? (BONOS_PRECIOS[b.tipo] || parsePrice(c.Precio)) : 0) + preciosBono(c).extras;
   return parsePrice(String(c.Precio||'')) + extra;
 }
 
@@ -938,12 +948,26 @@ var BONOS_PRECIOS = {
   'Bono 3 Refuerzo Gel + Semi Pies': 105,
   'Bono 3 Semi Manos + Semi Pies': 100
 };
+// En una cita con bono, el bono cubre el servicio; las decoraciones, retiradas y uñas rotas se cobran aparte
+function preciosBono(c) {
+  var nombres = String(c.Servicio||'').split(' + ');
+  var precios = String(c.Precio||'').split(' + ');
+  var extras = 0;
+  var partes = nombres.map(function(n, i){
+    var svc = SERVICIOS.find(function(s){ return s.name === n.trim(); });
+    var p = parsePrice(precios[i] || (svc ? svc.price : '0'));
+    if (svc && svc.grupo === 'Extras') { extras += p; return Math.round(p)+'€'; }
+    return '0€';
+  });
+  var rotas = String(c.Notas||'').match(/(\d+)\s*uña\(s\) rota/);
+  if (rotas) { extras += parseInt(rotas[1], 10); partes.push(rotas[1]+'€ uñas rotas'); }
+  return { extras: extras, texto: partes.join(' + ') + (partes.length > 1 ? ' = '+Math.round(extras)+'€' : '') };
+}
 function calcTotalCita(c) {
   var notas = c.Notas || c.notas || '';
   var esBono = notas.indexOf('Bono') >= 0 || notas.indexOf('bono') >= 0;
   if (!esBono) return { total: parsePrice(c.Precio), label: Math.round(parsePrice(c.Precio))+'€', esBono: false };
-  var tipoBonoMatch = notas.match(/Bono 3 [^.]+/);
-  var tipoBono = tipoBonoMatch ? tipoBonoMatch[0].trim() : '';
+  var tipoBono = tipoBonoActual(c);
   var bonoPrecio = tipoBono && BONOS_PRECIOS[tipoBono] ? BONOS_PRECIOS[tipoBono] : parsePrice(c.Precio);
   var clienta = elegirClientaBono(c);
   var num = 1;
@@ -962,8 +986,9 @@ function calcTotalCita(c) {
     else { var ip = pend.findIndex(function(x){ return String(x.ID) === String(c.ID); }); num = usadas + Math.max(0, ip) + 1; }
     num = ((num - 1) % 3) + 1;
   }
-  if (num === 1) return { total: bonoPrecio, label: bonoPrecio+'€ (bono completo)', esBono: true, sesion: '1ª sesión' };
-  return { total: 0, label: '0€ ('+num+'ª sesión bono)', esBono: true, sesion: num+'ª sesión' };
+  var pb = preciosBono(c), ex = pb.extras, exTxt = ex ? ' + '+Math.round(ex)+'€ extras' : '';
+  if (num === 1) return { total: bonoPrecio + ex, label: Math.round(bonoPrecio + ex)+'€ (bono completo '+bonoPrecio+'€'+exTxt+')', esBono: true, sesion: '1ª sesión', precioServicio: pb.texto };
+  return { total: ex, label: Math.round(ex)+'€ ('+num+'ª sesión bono'+exTxt+')', esBono: true, sesion: num+'ª sesión', precioServicio: pb.texto };
 }
 // ──────────────────────────────────────────────────────────────────────
 
@@ -1558,6 +1583,19 @@ function elegirClientaBono(c) {
   });
   return lista[0];
 }
+// Tipo de bono que tiene ahora la clienta (manda sobre lo que pone en las notas de la cita)
+function tipoBonoActual(c) {
+  var cl = elegirClientaBono(c);
+  var t = cl ? (cl.BonoTipo || (cl.Bono !== 'SI' ? cl.Bono : '')) : '';
+  if (t) return t;
+  var m = String(c.Notas||'').match(/Bono:\s*(Bono 3 [^.]+)\./);
+  return m ? m[1].trim() : '';
+}
+// Notas de la cita con el bono actualizado
+function notasConBono(c) {
+  var t = tipoBonoActual(c), n = String(c.Notas||'');
+  return t ? n.replace(/Bono:\s*Bono 3 [^.]+\./, 'Bono: '+t+'.') : n;
+}
 // Bono de la clienta de una cita: tipo + 3 círculos (verdes = sesiones usadas)
 function bonoDeCita(c) {
   var dig = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
@@ -1675,12 +1713,12 @@ function renderModal() {
     +'<div class="modal-title">'+esc(c.Nombre)+'</div>'
     +'<div class="modal-row"><span class="modal-label">Fecha</span><span>'+fmtDate(c.Fecha)+' · '+esc(c.Hora)+'</span></div>'
     +'<div class="modal-row"><span class="modal-label">Servicio</span><span>'+esc(c.Servicio)+'</span></div>'
-    +(function(){ var t=calcTotalCita(c); return '<div class="modal-row"><span class="modal-label">Total a pagar</span><span style="font-weight:600;color:var(--rose)">'+esc(t.label)+'</span></div>'+(t.esBono?'<div class="modal-row"><span class="modal-label">Precio servicio</span><span style="color:var(--warm-gray)">'+esc(c.Precio)+'</span></div>':''); }())
+    +(function(){ var t=calcTotalCita(c); return '<div class="modal-row"><span class="modal-label">Total a pagar</span><span style="font-weight:600;color:var(--rose)">'+esc(t.label)+'</span></div>'+(t.esBono?'<div class="modal-row"><span class="modal-label">Precio servicio</span><span style="color:var(--warm-gray)">'+esc(t.precioServicio)+'</span></div>':''); }())
     +'<div class="modal-row"><span class="modal-label">Teléfono</span><span>'+tel+'</span></div>'
     +bonoDeCita(c)
     +(!isCancelled ? renderModalAddBono(c) : '')
     +(!isCancelled ? renderPago(c) : '')
-    +(notasSinPago(c.Notas)?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+esc(notasSinPago(c.Notas))+'</span></div>':'')
+    +(notasSinPago(c.Notas)?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+esc(notasSinPago(notasConBono(c)))+'</span></div>':'')
     +'<div class="modal-row"><span class="modal-label">Estado</span><span>'+(isCancelled?'❌ Cancelada':(isCompleted?'✅ Completada':'✓ Confirmada'))+'</span></div>'
     +'<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.2rem;">'
     +(!isCancelled&&!isCompleted?'<a href="https://wa.me/'+tel+'?text='+waReminder+'" target="_blank" class="btn-wa" style="justify-content:center;padding:0.8rem;">Enviar recordatorio</a>':'')
@@ -2092,7 +2130,7 @@ function bindEvents() {
       app.modalAddBono = null;
       // Actualizar ya en el panel (sin esperar a recargar), por si se marca completada enseguida
       var ses = String(3 - usadas);
-      if (existe) app.clientas = app.clientas.map(function(x){ return x === existe ? Object.assign({}, x, {Bono: tipo, BonoSesiones: ses}) : x; });
+      if (existe) app.clientas = app.clientas.map(function(x){ return x === existe ? Object.assign({}, x, {Bono: tipo, BonoTipo: tipo, BonoSesiones: ses}) : x; });
       else app.clientas = app.clientas.concat([{Nombre: g.nombre, 'Teléfono': g.tel, Bono: tipo, BonoTipo: tipo, BonoSesiones: ses}]);
       if (estaCita) {
         var nueva = Object.assign({}, cita, {Notas: 'Bono: '+tipo+'. '+notas});

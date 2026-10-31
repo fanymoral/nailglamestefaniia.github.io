@@ -639,6 +639,11 @@ var SERVICIOS = [
   {id:'ret-semi', name:'Retirada Semipermanente', duration:30, price:'7€', grupo:'Extras'},
   {id:'ret-acri', name:'Retirada Acrigel', duration:30, price:'10€', grupo:'Extras'}
 ];
+var PRECIO_ARREGLO = 1; // € por uña
+function arreglosDeTexto(texto) {
+  var m = String(texto||'').match(/Arreglo de uña x(\d+)/);
+  return m ? parseInt(m[1], 10) : 0;
+}
 function svcIdsDeTexto(texto) {
   var partes = String(texto||'').split(' + ').map(function(x){ return x.trim(); });
   return SERVICIOS.filter(function(s){ return partes.indexOf(s.name) >= 0; }).map(function(s){ return s.id; });
@@ -650,22 +655,30 @@ function renderCambioServicio(c) {
   var sel = svcSeleccionados();
   var durAuto = sel.reduce(function(a,s){ return a+s.duration; },0);
   var dur = app.svcDur != null ? app.svcDur : durAuto;
-  var precio = sel.reduce(function(a,s){ return a+parsePrice(s.price); },0);
-  var grupos = ['Manos','Pies','Extras'].map(function(g){
-    return '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--warm-gray);margin-top:0.4rem;">'+g+'</div>'
+  var arr = app.svcArreglos || 0;
+  var precio = sel.reduce(function(a,s){ return a+parsePrice(s.price); },0) + arr*PRECIO_ARREGLO;
+  var g = app.svcGrupo || 'Manos';
+  var elegidos = sel.map(function(s){ return s.name; }).concat(arr ? ['Arreglo de uña x'+arr] : []);
+  var grupos = '<select id="svcGrupoSel" style="border:1.5px solid var(--blush);border-radius:8px;padding:0.5rem;font-family:DM Sans,sans-serif;font-size:0.9rem;margin:0.3rem 0;">'
+      + ['Manos','Pies','Extras'].map(function(x){ return '<option value="'+x+'"'+(x===g?' selected':'')+'>'+(x==='Manos'?'💅 Manos':x==='Pies'?'🦶 Pies':'✨ Extras')+'</option>'; }).join('')
+      + '</select>'
       + SERVICIOS.filter(function(s){ return s.grupo===g; }).map(function(s){
         return '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;padding:0.25rem 0;cursor:pointer;">'
           +'<input type="checkbox" class="svc-check" data-svcid="'+s.id+'" '+((app.svcSel||[]).indexOf(s.id)>=0?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose);">'
           +'<span style="flex:1">'+s.name+'</span><span style="color:var(--warm-gray);font-size:0.75rem;">'+(s.duration?s.duration+' min · ':'')+s.price+'</span></label>';
-      }).join('');
-  }).join('');
+      }).join('')
+      + (g==='Extras' ? '<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;padding:0.25rem 0;"><span style="flex:1">🔨 Arreglo de uña</span>'
+          +'<select id="svcArreglos" style="border:1.5px solid var(--blush);border-radius:8px;padding:0.3rem;font-family:DM Sans,sans-serif;">'
+          +[0,1,2,3,4,5,6,7,8,9,10].map(function(n){ return '<option value="'+n+'"'+(n===arr?' selected':'')+'>'+(n?n+' uña'+(n>1?'s':''):'Ninguna')+'</option>'; }).join('')
+          +'</select><span style="color:var(--warm-gray);font-size:0.75rem;">'+PRECIO_ARREGLO+'€/uña</span></div>' : '');
   return '<div style="background:var(--light-gray);border-radius:10px;padding:1rem;display:flex;flex-direction:column;gap:0.3rem;">'
     +'<div style="font-size:0.8rem;font-weight:500;color:var(--espresso)">Servicio de la cita:</div>'
     +grupos
+    +'<div style="font-size:0.8rem;color:var(--espresso);margin-top:0.4rem;">Elegido: <strong>'+(elegidos.length?esc(elegidos.join(' + ')):'nada')+'</strong></div>'
     +'<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.6rem;font-size:0.85rem;">Duración <input type="number" id="svcDurInput" min="0" step="15" value="'+dur+'" style="width:80px;border:1.5px solid var(--light-gray);border-radius:8px;padding:0.4rem;font-family:DM Sans,sans-serif;"> min</div>'
     +'<div style="font-size:0.85rem;margin-top:0.2rem;">Precio: <strong style="color:var(--rose)">'+precio+'€</strong></div>'
     +'<div style="display:flex;gap:0.5rem;margin-top:0.6rem;">'
-    +'<button id="svcSaveBtn" style="flex:1;padding:0.7rem;background:var(--espresso);color:var(--cream);border:none;border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;" '+(sel.length?'':'disabled')+'>Guardar servicio</button>'
+    +'<button id="svcSaveBtn" style="flex:1;padding:0.7rem;background:var(--espresso);color:var(--cream);border:none;border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;" '+((sel.length||arr)?'':'disabled')+'>Guardar servicio</button>'
     +'<button id="svcCancelBtn" style="padding:0.7rem 1rem;background:none;border:1.5px solid var(--warm-gray);color:var(--warm-gray);border-radius:8px;font-family:DM Sans,sans-serif;cursor:pointer;">Cancelar</button>'
     +'</div></div>';
 }
@@ -846,6 +859,7 @@ function renderBonos() {
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">'
       +(tel?'<a href="https://wa.me/'+tel+'" target="_blank" class="btn-wa" style="font-size:0.75rem;">WhatsApp</a>':'')
       +(agotado?'<button class="btn-primary" data-renovar="'+esc(nombre)+'" style="font-size:0.75rem;padding:0.4rem 0.8rem;background:var(--rose);">🔄 Renovar bono</button>':'')
+      +'<button data-quitarbono="'+esc(nombre)+'" style="font-size:0.72rem;padding:0.3rem 0.7rem;background:none;border:1.5px solid #D9534F;color:#D9534F;border-radius:8px;cursor:pointer;font-family:DM Sans,sans-serif;">🗑️ Eliminar bono</button>'
       +'</div>'
       +'</div>'
       +'<div style="margin-top:0.9rem;display:flex;align-items:center;gap:0.3rem;">'
@@ -956,7 +970,7 @@ function preciosBono(c) {
   var partes = nombres.map(function(n, i){
     var svc = SERVICIOS.find(function(s){ return s.name === n.trim(); });
     var p = parsePrice(precios[i] || (svc ? svc.price : '0'));
-    if (svc && svc.grupo === 'Extras') { extras += p; return Math.round(p)+'€'; }
+    if ((svc && svc.grupo === 'Extras') || /^Arreglo de uña/.test(n.trim())) { extras += p; return Math.round(p)+'€'; }
     return '0€';
   });
   var rotas = String(c.Notas||'').match(/(\d+)\s*uña\(s\) rota/);
@@ -2030,6 +2044,18 @@ function bindEvents() {
   if (abBtn) abBtn.addEventListener('click', function(){ app.showAddBono = true; render(); window.scrollTo(0, document.getElementById('abNombre').getBoundingClientRect().top + window.scrollY - 120); });
   var abC = document.getElementById('abCerrar');
   if (abC) abC.addEventListener('click', function(){ app.showAddBono = false; render(); });
+  document.querySelectorAll('[data-quitarbono]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var nombre = btn.getAttribute('data-quitarbono');
+      if (!confirm('¿Eliminar el bono de '+nombre+'? La clienta sigue guardada, solo se le quita el bono.')) return;
+      btn.disabled = true; btn.textContent = 'Eliminando...';
+      apiPatch('Clientas','Nombre',nombre,{Bono:'', BonoTipo:'', BonoSesiones:''}).then(function(r){ return r.json(); }).then(function(j){
+        if (!j || !j.updated) throw new Error('no');
+        app.clientas = app.clientas.map(function(x){ return x.Nombre === nombre ? Object.assign({}, x, {Bono:'', BonoTipo:'', BonoSesiones:''}) : x; });
+        render(); loadData();
+      }).catch(function(){ alert('No se ha podido eliminar. Inténtalo otra vez.'); btn.disabled = false; btn.textContent = '🗑️ Eliminar bono'; });
+    });
+  });
   var abG = document.getElementById('abGuardar');
   if (abG) abG.addEventListener('click', function(){
     var n = document.getElementById('abNombre').value.trim();
@@ -2148,6 +2174,8 @@ function bindEvents() {
     if (app.svcEditId === app.modal.ID) { app.svcEditId = null; render(); return; }
     app.svcEditId = app.modal.ID;
     app.svcSel = svcIdsDeTexto(app.modal.Servicio);
+    app.svcArreglos = arreglosDeTexto(app.modal.Servicio);
+    app.svcGrupo = 'Manos';
     app.svcDur = citaDurMin(app.modal);
     render();
   });
@@ -2160,6 +2188,10 @@ function bindEvents() {
       render();
     });
   });
+  var sgs = document.getElementById('svcGrupoSel');
+  if (sgs) sgs.addEventListener('change', function(){ app.svcGrupo = sgs.value; render(); });
+  var sar = document.getElementById('svcArreglos');
+  if (sar) sar.addEventListener('change', function(){ app.svcArreglos = parseInt(sar.value, 10) || 0; render(); });
   var sdi = document.getElementById('svcDurInput');
   if (sdi) sdi.addEventListener('change', function(){ app.svcDur = Math.max(0, parseInt(sdi.value)||0); });
   var scb = document.getElementById('svcCancelBtn');
@@ -2168,14 +2200,15 @@ function bindEvents() {
   if (ssb) ssb.addEventListener('click', function(){
     var cita = app.modal;
     var sel = svcSeleccionados();
-    if (!sel.length) { alert('Elige al menos un servicio'); return; }
+    var arr = app.svcArreglos || 0;
+    if (!sel.length && !arr) { alert('Elige al menos un servicio'); return; }
     var sdiNow = document.getElementById('svcDurInput');
     var dur = sdiNow ? Math.max(0, parseInt(sdiNow.value)||0) : sel.reduce(function(a,s){ return a+s.duration; },0);
     var otras = citasSolapadas(cita.Fecha, cita.Hora, dur || 30, cita.ID);
     if (otras.length && !confirm('Con la nueva duración se solapa con '+otras.map(function(o){ return o.Nombre+' ('+o.Hora+')'; }).join(', ')+'. ¿Guardar igualmente?')) return;
     var cambios = {
-      Servicio: sel.map(function(s){ return s.name; }).join(' + '),
-      Precio: sel.map(function(s){ return s.price; }).join(' + '),
+      Servicio: sel.map(function(s){ return s.name; }).concat(arr ? ['Arreglo de uña x'+arr] : []).join(' + '),
+      Precio: sel.map(function(s){ return s.price; }).concat(arr ? [(arr*PRECIO_ARREGLO)+'€'] : []).join(' + '),
       'Duración': dur+' min',
       DurMin: dur
     };

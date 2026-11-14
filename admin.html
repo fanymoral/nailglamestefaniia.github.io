@@ -1659,7 +1659,14 @@ function clientaConBono(c) {
   });
 }
 function renderModalAddBono(c) {
-  if (clientaConBono(c)) return '';
+  var cb = clientaConBono(c);
+  if (cb) {
+    // Cita ya completada antes de saber que era de bono: apuntarla y descontar la sesión
+    if (c.Estado === 'completada' && !/bono/i.test(String(c.Notas||''))) {
+      return '<div style="margin:0.8rem 0 0;"><button id="modalEraBonoBtn" style="width:100%;padding:0.7rem;background:none;border:1.5px dashed var(--rose);color:var(--rose);border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.88rem;cursor:pointer;">🎟️ Esta cita era de su bono</button></div>';
+    }
+    return '';
+  }
   if (app.modalAddBono !== c.ID) {
     return '<div style="margin:0.8rem 0 0;"><button id="modalAddBonoBtn" style="width:100%;padding:0.7rem;background:none;border:1.5px dashed var(--rose);color:var(--rose);border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.88rem;cursor:pointer;">🎟️ Añadir bono</button></div>';
   }
@@ -2150,6 +2157,24 @@ function bindEvents() {
   });
 
   // Añadir bono desde la cita
+  var mer = document.getElementById('modalEraBonoBtn');
+  if (mer) mer.addEventListener('click', function(){
+    var cita = app.modal, cb = clientaConBono(cita);
+    if (!cb) return;
+    var tipo = cb.BonoTipo || cb.Bono;
+    var notas = 'Bono: '+tipo+'. '+String(cita.Notas||'');
+    var ses = String(Math.max(0, (parseInt(cb.BonoSesiones||0,10)||0) - 1));
+    mer.disabled = true; mer.textContent = 'Guardando...';
+    apiPatch('Citas','ID',cita.ID,{Notas: notas}).then(function(r){ return r.json(); }).then(function(j){
+      if (!j || !j.updated) throw new Error('no');
+      return apiPatch('Clientas','Nombre',cb.Nombre,{BonoSesiones: ses});
+    }).then(function(){
+      app.citas = app.citas.map(function(x){ return String(x.ID)===String(cita.ID) ? Object.assign({}, x, {Notas: notas}) : x; });
+      app.clientas = app.clientas.map(function(x){ return x === cb ? Object.assign({}, x, {BonoSesiones: ses}) : x; });
+      app.modal = Object.assign({}, cita, {Notas: notas});
+      render(); loadData();
+    }).catch(function(){ alert('No se ha podido guardar. Inténtalo otra vez.'); mer.disabled = false; mer.textContent = '🎟️ Esta cita era de su bono'; });
+  });
   var mab = document.getElementById('modalAddBonoBtn');
   if (mab) mab.addEventListener('click', function(){ app.modalAddBono = app.modal.ID; render(); });
   var mbc = document.getElementById('mbCerrar');

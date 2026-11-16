@@ -78,7 +78,7 @@ var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6zmE9s6Dv7HlnT57k1C-
 var WHATSAPP = '34672574200';
 
 var state = { step: 'form', telefono: '', citas: [], cancelando: false, cancelada: null, error: '',
-  todasCitas: [], horarios: null, especiales: {}, bloqueados: [], fechaId: null, fMes: null, fAno: null, fFecha: null, fHora: null, fError: '', editId: null, svcSel: [], svcError: '', guardando: false, cambiada: null };
+  todasCitas: [], horarios: null, especiales: {}, bloqueados: [], calOk: false, calCargando: false, fechaId: null, fMes: null, fAno: null, fFecha: null, fHora: null, fError: '', editId: null, svcSel: [], svcError: '', guardando: false, cambiada: null };
 
 // Servicios (los mismos que en reservas.html: si cambias precios allí, cámbialos también aquí)
 var SERVICIOS = [
@@ -151,6 +151,14 @@ function huecosLibres(fecha, dur, excluirId){
   return out;
 }
 function renderCambioFecha(c){
+  if (!state.calOk) {
+    return '<div class="svc-box">'
+      +(state.calCargando
+        ? '<div class="spinner-wrap" style="padding:0.8rem 0"><div class="spinner"></div></div>'
+        : '<div class="msg msg-error" style="margin:0;">No he podido cargar mi calendario ahora mismo. Inténtalo de nuevo en un momento o escríbeme por WhatsApp.</div>')
+      +'<button class="btn-cancel-cita btn-volver" id="fCancelBtn" style="border-color:var(--light-gray);color:var(--warm-gray);margin-top:0.7rem;">Volver</button>'
+      +'</div>';
+  }
   var dur = durCita(c) || 30;
   var hoy = new Date(); hoy.setHours(0,0,0,0);
   var max = new Date(hoy); max.setDate(max.getDate()+MAX_DIAS);
@@ -182,8 +190,10 @@ function renderCambioFecha(c){
 function guardarFecha(cita){
   var dur = durCita(cita) || 30, nf = state.fFecha, nh = state.fHora;
   state.guardando=true; state.fError=''; render();
-  fetchJSON(SCRIPT_URL+'?sheet=Citas').then(function(citas){
+  Promise.all([fetchJSON(SCRIPT_URL+'?sheet=Citas'), cargarHorarios()]).then(function(r0){
+    var citas = r0[0];
     if (citas !== null) state.todasCitas = citas;
+    if (!state.calOk) throw new Error('sin bloqueos');
     if (huecosLibres(nf, dur, cita.ID).indexOf(nh) < 0) {
       state.guardando=false; state.fHora=null;
       state.fError='¡Vaya! Alguien acaba de coger esa hora. Elige otra, por favor.';
@@ -302,19 +312,23 @@ function fetchJSON(url, intentos, permitirObjeto) {
 }
 
 function cargarHorarios() {
-  fetchJSON(SCRIPT_URL+'?sheet=Horarios').then(function(h){
+  // Devuelve una promesa: true si se han podido leer los días bloqueados
+  return Promise.all([
+    fetchJSON(SCRIPT_URL+'?sheet=Horarios'),
+    fetchJSON(SCRIPT_URL+'?sheet=DiasEspeciales'),
+    fetchJSON(SCRIPT_URL+'?sheet=Bloqueados')
+  ]).then(function(res){
+    var h=res[0], d=res[1], b=res[2];
     if (h && h.length && h[0].Config) { try { var cfg=JSON.parse(String(h[0].Config).replace(/\\"/g,'"')); var n={}; Object.keys(cfg).forEach(function(k){ n[parseInt(k)]=cfg[k]; }); state.horarios=n; } catch(e){} }
-  });
-  fetchJSON(SCRIPT_URL+'?sheet=DiasEspeciales').then(function(d){
-    (d||[]).forEach(function(x){ if (x.Fecha && x.Horario) state.especiales[x.Fecha]=x.Horario; });
-  });
-  fetchJSON(SCRIPT_URL+'?sheet=Bloqueados').then(function(b){
-    state.bloqueados = (b||[]).map(function(x){ return String(x.Fecha||x.fecha||''); }).filter(Boolean);
+    if (d) { var esp={}; d.forEach(function(x){ if (x.Fecha && x.Horario) esp[x.Fecha]=x.Horario; }); state.especiales=esp; }
+    if (b) state.bloqueados = b.map(function(x){ return String(x.Fecha||x.fecha||''); }).filter(Boolean);
+    state.calOk = (b !== null && d !== null);
+    return state.calOk;
   });
 }
 
 function buscarCitas() {
-  cargarHorarios();
+  var calP = cargarHorarios();
   var tel = state.telefono.replace(/\D/g,'');
   if (tel.length < 9) { state.error = 'Introduce un número de teléfono válido.'; render(); return; }
   state.step = 'loading'; state.error = ''; render();
@@ -322,7 +336,8 @@ function buscarCitas() {
   // Sus citas (con su teléfono) + las horas ocupadas de todas (sin datos personales)
   Promise.all([
     fetchJSON(SCRIPT_URL+'?_action=mias&tel='+encodeURIComponent(tel), 3, true),
-    fetchJSON(SCRIPT_URL+'?sheet=Citas')
+    fetchJSON(SCRIPT_URL+'?sheet=Citas'),
+    calP
   ]).then(function(res){
     var mias = res[0], citas = res[1];
     if (mias === null || citas === null) {
@@ -448,6 +463,11 @@ function render() {
         var base = new Date(((c && c.Fecha) || todayStr())+'T12:00:00');
         state.editId = null; state.fechaId = btn.dataset.fechaid;
         state.fMes = base.getMonth(); state.fAno = base.getFullYear(); state.fFecha = null; state.fHora = null; state.fError = '';
+        if (!state.calOk) {
+          state.calCargando = true; render();
+          cargarHorarios().then(function(){ state.calCargando = false; render(); });
+          return;
+        }
         render();
       });
     });

@@ -185,7 +185,8 @@ var CONFIG = {
     {id:"deco-mid",   name:"Decoración media",       desc:"Efecto mármol, flores, líneas geométricas en todas las uñas",                                                                                          duration:0,  price:"3€"},
     {id:"deco-full",  name:"Nail art completo",       desc:"Diseños elaborados a mano, pedrería, perlas, efecto 3D, encapsulado de flores secas, combinación de múltiples técnicas o diseño totalmente personalizado", duration:30, price:"7€"},
     {id:"ret-semi", name:"Retirada Semipermanente",   desc:"Retirada segura del esmalte semipermanente",duration:30,  price:"7€"},
-    {id:"ret-acri", name:"Retirada Acrigel",          desc:"Retirada completa de acrigel",              duration:30,  price:"10€"}
+    {id:"ret-acri", name:"Retirada Acrigel",          desc:"Retirada completa de acrigel",              duration:30,  price:"10€"},
+    {id:"ret-pies", name:"Retirada de Pies",          desc:"Retirada del esmalte semipermanente de los pies", duration:15,  price:"5€"}
   ]
 };
 
@@ -490,7 +491,7 @@ function renderStep1() {
   var groups = [
     { label: '💅 Manos', ids: ['semi','gel','acrigel','relleno-acri'] },
     { label: '🦶 Pies', ids: ['pies','pedicura'] },
-    { label: '✨ Extras', ids: ['deco-basic','deco-mid','deco-full','ret-semi','ret-acri'] }
+    { label: '✨ Extras', ids: ['deco-basic','deco-mid','deco-full','ret-semi','ret-acri','ret-pies'] }
   ];
 
   var btns = groups.map(function(g){
@@ -659,6 +660,7 @@ function renderStep3() {
   return '<div class="card"><div class="card-title">Tus datos<small>Para confirmar y recordarte la cita</small></div>'
     +'<div class="form-row"><label class="form-label">Nombre y apellidos *</label><input class="form-input" id="iName" type="text" placeholder="Ej: Laura García" value="'+esc(state.name)+'" maxlength="60"></div>'
     +'<div class="form-row"><label class="form-label">Teléfono (WhatsApp) *</label><input class="form-input" id="iPhone" type="tel" placeholder="Ej: 612 345 678" value="'+esc(state.phone)+'" maxlength="20"></div>'
+    +'<div class="form-row"><label class="form-label">Email (opcional)</label><input class="form-input" id="iEmail" type="email" placeholder="Para enviarte la confirmación de tu cita" value="'+esc(state.email||'')+'" maxlength="80"></div>'
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iFirstTime" '+(state.firstTime?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> ✨ Es mi primera vez contigo</label></div>'
 
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iHasBono" '+(state.hasBono?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> 🎟️ Tengo un bono</label></div>'
@@ -746,7 +748,7 @@ function renderSuccess() {
   return '<div class="card success-screen"><div class="success-icon">✓</div><div class="success-title">¡Reserva confirmada!</div>'
     +welcomeMsg
     +'<p class="success-sub">Tu cita ha quedado reservada para el<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br><br>'+(new Date() < new Date(2026,10,1) ? '¡Estoy de vuelta la última semana de octubre! 🌸<br>' : '')+'<span style="font-size:0.8rem;color:var(--warm-gray);">Según la demanda iré abriendo más horarios, así que si no encuentras hueco estate atenta 💕</span></p>'
-    +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#856404;">⚠️ <strong>Importante:</strong> Pulsa el botón para enviarme tu reserva por WhatsApp. Sin este paso no podré confirmarla.</div>'
+    +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#856404;">💬 <strong>Pulsa el botón y mándame tu reserva por WhatsApp.</strong> Así tendrás todos los detalles de tu cita guardados en el chat.</div>'
     +'<a href="https://wa.me/'+WHATSAPP+'?text='+msg+'" target="_blank" class="whatsapp-btn">Enviar por WhatsApp</a>'
     +'<div style="margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--light-gray);">'
     +'<p style="font-size:0.8rem;color:var(--warm-gray);margin-bottom:0.3rem;">¿Te vendría mejor antes? ⏩</p>'
@@ -924,6 +926,9 @@ function bind() {
     var n=document.getElementById('iName').value.trim();
     var p=document.getElementById('iPhone').value.trim();
     if (!n||!p){ alert('Por favor, rellena tu nombre y teléfono.'); return; }
+    var em=(document.getElementById('iEmail')||{value:''}).value.trim();
+    if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ alert('Revisa tu email, parece que no está bien escrito (o déjalo vacío).'); return; }
+    state.email=em;
     state.name=n; state.phone=p; state.notes=document.getElementById('iNotes').value.trim();
     state.firstTime=document.getElementById('iFirstTime').checked;
     state.hasBono=document.getElementById('iHasBono').checked;
@@ -970,7 +975,7 @@ function bind() {
   if (btnNew) btnNew.addEventListener('click',function(){
     // Reset completo para una nueva reserva
     state.step=1; state.services=[]; state.date=null; state.time=null;
-    state.name=''; state.phone=''; state.notes='';
+    state.name=''; state.phone=''; state.notes=''; state.email='';
     state.hasBono=false; state.bonoType=''; state.firstTime=false;
     state.brokenNails=0; state.showBrokenModal=false; state.showBonoModal=false;
     state.bonoShown=false; state.showDecoModal=false; state.showPayModal=false;
@@ -1028,6 +1033,7 @@ function guardarCita() {
     DurMin: totalDur,
     Nombre: state.name,
     'Teléfono': state.phone,
+    Email: state.email || '',
     Notas: (state.hasBono ? 'Bono: '+state.bonoType+'. ' : '') + (state.firstTime ? 'Primera vez. ' : '') + (state.brokenNails>0 ? state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
     'Reservada el': new Date().toLocaleString('es-ES'),
     Estado: 'confirmada'

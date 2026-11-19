@@ -190,6 +190,13 @@ var CONFIG = {
   ]
 };
 
+// Para el WhatsApp: qué sesión del bono es y cuántas le quedarán
+function lineaSesionBono(){
+  var s = state.clientaBonoSesiones;
+  if (!(s >= 1 && s <= 3)) s = 3; // sin bono cargado = bono nuevo
+  var num = 4 - s, despues = s - 1;
+  return ' (sesión '+num+' de 3'+(despues===0?', la última)':'; después me '+(despues===1?'queda 1':'quedan '+despues)+')');
+}
 var state = {
   step:1, services:[], date:null, time:null,
   name:'', phone:'', notes:'',
@@ -735,7 +742,7 @@ function renderSuccess() {
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
   var endM=timeToMins(state.time)+(getTotalDur()||30);
   var dtEnd=state.date.replace(/-/g,'')+'T'+pad(Math.floor(endM/60))+pad(endM%60)+'00';
-  var msg=encodeURIComponent('Hola! Acabo de reservar una cita.\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType:'')+(state.notes?'\nNotas: '+state.notes:'')+'\n\nNos vemos pronto!');
+  var msg=encodeURIComponent('Hola! Acabo de reservar una cita.\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType+lineaSesionBono():'')+(state.notes?'\nNotas: '+state.notes:'')+'\n\nNos vemos pronto!');
   var welcomeMsg = state.firstTime ? '<p style="font-size:0.85rem;color:var(--rose);margin-bottom:0.8rem;">✨ ¡Qué ilusión tenerte por primera vez! Te voy a cuidar muy bien 💕</p>' : '';
   if (state.saveFailed) {
     var msgF=encodeURIComponent('Hola! He intentado reservar en la web pero no se ha guardado. ¿Me la apuntas?\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType:'')+(state.notes?'\nNotas: '+state.notes:''));

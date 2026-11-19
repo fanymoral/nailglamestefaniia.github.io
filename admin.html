@@ -860,7 +860,7 @@ function renderBonos() {
       +(tel?'<div class="cita-tel">📱 '+esc(c['Teléfono']||c.Telefono||'')+'</div>':'')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">'
-      +(tel?'<a href="https://wa.me/'+tel+'" target="_blank" class="btn-wa" style="font-size:0.75rem;">WhatsApp</a>':'')
+      +(tel?'<a href="https://wa.me/'+tel+'?text='+msgSesionesBono(nombre, bonoTipo, restantes)+'" target="_blank" class="btn-wa" style="font-size:0.75rem;">📲 Avisar sesiones</a>':'')
       +(agotado?'<button class="btn-primary" data-renovar="'+esc(nombre)+'" style="font-size:0.75rem;padding:0.4rem 0.8rem;background:var(--rose);">🔄 Renovar bono</button>':'')
       +'<div style="display:flex;gap:0.3rem;"><button data-sesbono="'+esc(nombre)+'" data-delta="1" '+(restantes<=0?'disabled ':'')+'style="font-size:0.72rem;padding:0.3rem 0.6rem;background:#4CAF50;border:none;color:#fff;border-radius:8px;cursor:pointer;font-family:DM Sans,sans-serif;">＋ Usada</button>'
       +'<button data-sesbono="'+esc(nombre)+'" data-delta="-1" '+(restantes>=3?'disabled ':'')+'style="font-size:0.72rem;padding:0.3rem 0.6rem;background:none;border:1.5px solid var(--warm-gray);color:var(--warm-gray);border-radius:8px;cursor:pointer;font-family:DM Sans,sans-serif;">－ Quitar</button></div>'
@@ -1633,6 +1633,21 @@ function notasConBono(c) {
   return t ? n.replace(/Bono:\s*Bono 3 [^.]+\./, 'Bono: '+t+'.') : n;
 }
 // Bono de la clienta de una cita: tipo + 3 círculos (verdes = sesiones usadas)
+// Mensaje de WhatsApp para decirle a la clienta cuántas sesiones de bono le quedan
+function msgSesionesBono(nombre, tipo, restantes) {
+  var t = (tipo && tipo !== 'SI') ? tipo : 'tu bono';
+  var txt = 'Hola '+(nombre||'')+'! 🎟️ Te cuento cómo va tu '+t+': ';
+  if (restantes <= 0) txt += 'ya has usado las 3 sesiones. Si quieres renovarlo, dímelo y te lo preparo 💕';
+  else txt += 'te '+(restantes===1?'queda 1 sesión':'quedan '+restantes+' sesiones')+' de 3. ¡Nos vemos pronto! 💅';
+  return encodeURIComponent(txt);
+}
+function lineaBonoRecordatorio(c) {
+  var cl = elegirClientaBono(c);
+  if (!cl || !cl.Bono) return '';
+  var r = parseInt(cl.BonoSesiones||0,10)||0;
+  if (r <= 0) return '';
+  return ' 🎟️ De tu bono te '+(r===1?'queda 1 sesión':'quedan '+r+' sesiones')+' (contando esta).';
+}
 function bonoDeCita(c) {
   var dig = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
   var tel = dig(c['Teléfono']||c.Telefono);
@@ -1654,7 +1669,9 @@ function bonoDeCita(c) {
     +'<label style="font-size:0.75rem;color:var(--warm-gray);display:inline-flex;align-items:center;gap:0.3rem;margin-top:4px;">Le quedan '
     +'<select id="bonoSesSel" data-nombre="'+esc(cl.Nombre)+'" style="border:1.5px solid var(--blush);border-radius:6px;padding:0.15rem 0.3rem;font-family:DM Sans,sans-serif;">'
     +[3,2,1,0].map(function(n){ return '<option value="'+n+'"'+(n===restantes?' selected':'')+'>'+n+'</option>'; }).join('')
-    +'</select> sesiones</label></span></div>';
+    +'</select> sesiones</label>'
+    +((tel||dig(cl['Teléfono']))?'<br><a href="https://wa.me/'+String(c['Teléfono']||c.Telefono||cl['Teléfono']||'').replace(/\D/g,'')+'?text='+msgSesionesBono(c.Nombre||cl.Nombre, tipo, restantes)+'" target="_blank" class="btn-wa" style="font-size:0.72rem;margin-top:6px;display:inline-flex;">📲 Decirle cuántas le quedan</a>':'')
+    +'</span></div>';
 }
 
 // En la ficha de la cita: botón para añadir un bono si la clienta no tiene uno con sesiones
@@ -1751,7 +1768,7 @@ function btnVerDinero() {
 function renderModal() {
   var c = app.modal;
   var tel = (c['Teléfono']||c.Telefono||'').replace(/[^0-9]/g,'');
-  var waReminder = encodeURIComponent('Hola '+c.Nombre+'! Te escribo para recordarte tu cita el '+fmtDate(c.Fecha)+' a las '+c.Hora+' para '+c.Servicio+'. Por favor, confirma tu asistencia. Hasta pronto!');
+  var waReminder = encodeURIComponent('Hola '+c.Nombre+'! Te escribo para recordarte tu cita el '+fmtDate(c.Fecha)+' a las '+c.Hora+' para '+c.Servicio+'.'+lineaBonoRecordatorio(c)+' Por favor, confirma tu asistencia. Hasta pronto!');
   var waReview = encodeURIComponent('Hola '+c.Nombre+'! Espero que te haya encantado tu '+c.Servicio+'. Si tienes un momentito, me haria muchisima ilusion que subieras una foto a Instagram etiquetandome @nailglam.estefania Muchas gracias!');
   var isCancelled = c.Estado==='cancelada';
   var isCompleted = c.Estado==='completada';

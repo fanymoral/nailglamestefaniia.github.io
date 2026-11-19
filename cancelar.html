@@ -347,6 +347,7 @@ function buscarCitas() {
       render(); return;
     }
     state.todasCitas = citas;
+    state.bono = (mias && !Array.isArray(mias) && mias.bono) ? mias.bono : null;
     var propias = Array.isArray(mias) ? mias : (mias.citas || []);
     state.citas = propias.filter(function(c){
       var cTel = (c['Teléfono']||c.Telefono||'').replace(/\D/g,'');
@@ -402,6 +403,14 @@ function render() {
     app.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Buscando tus citas...</div>';
   } else if (state.step === 'lista') {
     var html = '<div class="card-title">Tus próximas citas</div>';
+    if (state.bono) {
+      var bs = parseInt(state.bono.sesiones,10)||0, bt = (state.bono.tipo && state.bono.tipo!=='SI') ? state.bono.tipo : 'Tu bono';
+      var bolas = ''; for (var bi=0; bi<3; bi++) bolas += '<span style="display:inline-block;width:16px;height:16px;border-radius:50%;margin-right:5px;vertical-align:middle;'+(bi < 3-bs ? 'background:var(--rose);' : 'background:#fff;border:2px solid var(--blush);box-sizing:border-box;')+'"></span>';
+      html += '<div style="background:#FFF0F5;border:1.5px solid var(--blush);border-radius:14px;padding:0.8rem 1rem;margin-bottom:1rem;font-size:0.85rem;line-height:1.5;">'
+        +'<strong>🎟️ '+esc(bt)+'</strong><br>'
+        +(bs>0 ? 'Te '+(bs===1?'queda <strong>1 sesión</strong>':'quedan <strong>'+bs+' sesiones</strong>')+' de 3' : 'Ya has usado las 3 sesiones. Si quieres renovarlo, escríbeme 💕')
+        +'<div style="margin-top:0.4rem;">'+bolas+'</div></div>';
+    }
     if (state.error) html += '<div class="msg msg-error">'+state.error+'</div>';
     if (!state.citas.length) {
       html += '<div class="no-citas">No tienes citas próximas con este número.</div>'

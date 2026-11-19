@@ -2523,7 +2523,8 @@ function bindEvents() {
       'Cumpleaños': document.getElementById('cfCumple').value.trim(),
       Observaciones: document.getElementById('cfObs').value.trim(),
       Bono: document.getElementById('cfBono').value,
-      BonoSesiones: document.getElementById('cfBonoSesiones').value
+      BonoTipo: document.getElementById('cfBono').value,
+      BonoSesiones: document.getElementById('cfBono').value ? document.getElementById('cfBonoSesiones').value : ''
     };
     saveCF.textContent = 'Guardando...'; saveCF.disabled = true;
     var isNew = app.clientaEditing.isNew;
@@ -2531,7 +2532,16 @@ function bindEvents() {
     if (isNew) {
       apiPost('Clientas', data).then(function(){ app.clientaEditing=null; loadData(); });
     } else {
-      apiPatch('Clientas','Nombre',originalNombre,data).then(function(){ app.clientaEditing=null; loadData(); });
+      // Si cambia el tipo de bono, cambiarlo también en sus citas pendientes
+      var dig = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
+      var pend = data.Bono ? app.citas.filter(function(c){
+        var m = String(c.Notas||'').match(/Bono:\s*(Bono 3 [^.]+)\./);
+        return m && m[1].trim() !== data.Bono && c.Estado !== 'cancelada' && c.Estado !== 'completada'
+          && ((data['Teléfono'] && dig(c['Teléfono']||c.Telefono) === dig(data['Teléfono'])) || (c.Nombre||'').toLowerCase() === String(originalNombre||'').toLowerCase());
+      }) : [];
+      apiPatch('Clientas','Nombre',originalNombre,data).then(function(){
+        return Promise.all(pend.map(function(c){ return apiPatch('Citas','ID',c.ID,{Notas: String(c.Notas).replace(/Bono:\s*Bono 3 [^.]+\./, 'Bono: '+data.Bono+'.')}); }));
+      }).then(function(){ app.clientaEditing=null; loadData(); });
     }
   });
 }

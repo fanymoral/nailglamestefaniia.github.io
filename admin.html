@@ -1227,6 +1227,11 @@ function timeToMins(t) {
   var p = t.split(':'); return parseInt(p[0])*60 + parseInt(p[1]||0);
 }
 // "9:00-14:00" o "9:00-14:00,16:00-19:00" → [[540,840],[960,1140]]
+// Junta todas las líneas de días especiales de una fecha (si pusiste varias, se suman)
+function especialDe(ds){
+  var l = (app.diasEspeciales||[]).filter(function(e){ return e.Fecha === ds && e.Horario; });
+  return l.length ? {Fecha: ds, Horario: l.map(function(e){ return e.Horario; }).join(',')} : null;
+}
 function parseHorarioEspecial(horario) {
   var rangos = [];
   String(horario||'').split(',').forEach(function(parte){
@@ -1274,7 +1279,7 @@ function renderAgenda() {
     });
     // También incluir rangos de días especiales
     var ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    var especial = app.diasEspeciales && app.diasEspeciales.find(function(e){ return e.Fecha === ds; });
+    var especial = especialDe(ds);
     if (especial && especial.Horario) {
       parseHorarioEspecial(especial.Horario).forEach(function(r){
         minMins = Math.min(minMins, Math.floor(r[0]/30)*30);
@@ -1329,7 +1334,7 @@ function renderAgenda() {
       var ranges = schedNow[dow] || schedNow[String(dow)] || [];
       var isOpen = ranges.some(function(r){ return m30 >= r[0] && m30 < r[1]; });
       // Días especiales abiertos — abrir slots según su horario propio
-      var especial = !isBlocked && app.diasEspeciales && app.diasEspeciales.find(function(e){ return e.Fecha === ds; });
+      var especial = !isBlocked && especialDe(ds);
       var isEspecialOpen = false;
       if (especial && especial.Horario) {
         isEspecialOpen = parseHorarioEspecial(especial.Horario).some(function(r){ return m30 >= r[0] && m30 < r[1]; });
@@ -1565,7 +1570,7 @@ function renderBloquear() {
 
   return '<div class="block-section">'
     +'<div class="block-title">📅 Días especiales abiertos</div>'
-    +'<div class="block-sub">Abre un día concreto aunque ese día de la semana esté cerrado en tu horario habitual.</div>'
+    +'<div class="block-sub">Añade horas a un día concreto (se suman a tu horario normal de ese día) o abre un día que normalmente cierras. Puedes poner varias franjas: 10:00-13:00,16:00-20:30</div>'
     +'<div class="block-input-row" style="align-items:flex-end;gap:0.6rem;flex-wrap:wrap;">'
     +'<div><label class="form-label">Fecha</label><input type="date" class="block-input" id="especFecha" style="width:auto;"></div>'
     +'<div><label class="form-label">Horario (ej: 9:00-14:00)</label><input type="text" class="block-input" id="especHorario" placeholder="9:00-14:00" style="width:160px;"></div>'

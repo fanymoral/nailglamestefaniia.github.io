@@ -270,7 +270,8 @@ function loadData(cb) {
     // Días especiales: fechas sueltas abiertas con horario propio
     state.diasEspeciales = {};
     (data.DiasEspeciales || []).forEach(function(d){
-      if (d.Fecha && d.Horario) state.diasEspeciales[d.Fecha] = d.Horario;
+      // Si hay varias líneas para el mismo día, se suman todas
+      if (d.Fecha && d.Horario) state.diasEspeciales[d.Fecha] = state.diasEspeciales[d.Fecha] ? state.diasEspeciales[d.Fecha]+','+d.Horario : String(d.Horario);
     });
     showLoading(false);
     if (cb) cb();
@@ -363,16 +364,23 @@ function parseHorarioEspecial(horario) {
   // Parsea "9:00-14:00" o "9:00-14:00,16:00-19:00" → array de rangos [[540,840],...]
   var rangos = [];
   (horario||'').split(',').forEach(function(parte){
-    var m = parte.trim().match(/^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
+    var m = parte.trim().match(/^(\d{1,2})[:.](\d{2})\s*-\s*(\d{1,2})[:.](\d{2})$/);
     if (m) rangos.push([parseInt(m[1])*60+parseInt(m[2]), parseInt(m[3])*60+parseInt(m[4])]);
   });
   return rangos;
 }
+function unirRangos(rs){
+  rs = rs.filter(function(r){ return r[1] > r[0]; }).sort(function(a,b){ return a[0]-b[0]; });
+  var out=[]; rs.forEach(function(r){ var u=out[out.length-1]; if (u && r[0] <= u[1]) u[1]=Math.max(u[1],r[1]); else out.push([r[0],r[1]]); });
+  return out;
+}
 function getSlots(dateStr, dur) {
   var slots=[], dow=new Date(dateStr+'T12:00:00').getDay();
-  // ¿Es día especial? Usar su horario propio
+  // ¿Es día especial? Sus horas se SUMAN a tu horario normal de ese día
+  // (si el día está bloqueado entero, solo cuentan las horas especiales)
   var especial = state.diasEspeciales && state.diasEspeciales[dateStr];
-  var ranges = especial ? parseHorarioEspecial(especial) : (CONFIG.schedule[dow]||[]);
+  var normal = (especial && state.blockedDays.indexOf(dateStr) >= 0) ? [] : (CONFIG.schedule[dow]||[]);
+  var ranges = especial ? unirRangos(normal.concat(parseHorarioEspecial(especial))) : normal;
   // Si es hoy, no mostrar horas pasadas
   var now = new Date();
   var todayStr = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());

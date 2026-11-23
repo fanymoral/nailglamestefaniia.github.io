@@ -140,7 +140,7 @@ function isoDe(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.ge
 function huecosLibres(fecha, dur, excluirId){
   if (state.bloqueados.indexOf(fecha)>=0 && !state.especiales[fecha]) return [];
   var am = state.bloqueados.indexOf(fecha+'_AM')>=0, pm = state.bloqueados.indexOf(fecha+'_PM')>=0, SPLIT=14*60;
-  var ahora = new Date(), minHoy = (fecha===isoDe(ahora)) ? ahora.getHours()*60+ahora.getMinutes() : 0;
+  var ahora = new Date(), minHoy = (fecha===isoDe(ahora)) ? ahora.getHours()*60+ahora.getMinutes()+60 : 0; // mínimo 1 hora de antelación
   var out=[];
   rangosDelDia(fecha).forEach(function(r){
     var a=r[0], b=r[1];

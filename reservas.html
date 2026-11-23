@@ -374,6 +374,7 @@ function unirRangos(rs){
   var out=[]; rs.forEach(function(r){ var u=out[out.length-1]; if (u && r[0] <= u[1]) u[1]=Math.max(u[1],r[1]); else out.push([r[0],r[1]]); });
   return out;
 }
+var ANTELACION_MIN = 60; // reservas para hoy: mínimo 1 hora de antelación
 function getSlots(dateStr, dur) {
   var slots=[], dow=new Date(dateStr+'T12:00:00').getDay();
   // ¿Es día especial? Sus horas se SUMAN a tu horario normal de ese día
@@ -384,7 +385,8 @@ function getSlots(dateStr, dur) {
   // Si es hoy, no mostrar horas pasadas
   var now = new Date();
   var todayStr = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
-  var nowMins = (dateStr === todayStr) ? now.getHours()*60 + now.getMinutes() : 0;
+  // Si es hoy, solo horas con al menos ANTELACION_MIN minutos de margen
+  var nowMins = (dateStr === todayStr) ? now.getHours()*60 + now.getMinutes() + ANTELACION_MIN : 0;
 
   // Bloqueo parcial de mañana/tarde (mañana = antes de 14:00, tarde = desde 14:00)
   var amBlocked = state.blockedDays.indexOf(dateStr+'_AM') >= 0;

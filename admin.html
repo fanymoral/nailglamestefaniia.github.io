@@ -957,9 +957,11 @@ function ingresoCita(c) {
   var rotas = String(c.Notas||'').match(/(\d+)\s*uña\(s\) rota/);
   var extra = rotas ? parseInt(rotas[1], 10) : 0;
   var t = calcTotalCita(c);
-  if (t.esBono) return t.total;
-  return parsePrice(String(c.Precio||'')) + extra;
+  var base = t.esBono ? t.total : parsePrice(String(c.Precio||'')) + extra;
+  // Lo que te debe de esta cita no cuenta como ingreso hasta que te lo pague
+  return Math.max(0, base - deudaEnCita(c));
 }
+function deudaEnCita(c) { var m = String(c.Notas||'').match(RE_DEUDA); return m ? (parseFloat(m[1].replace(',','.'))||0) : 0; }
 
 var BONOS_PRECIOS = {
   'Bono 3 Semipermanentes': 50,
@@ -1625,6 +1627,27 @@ function fichaDeCita(c) {
 }
 function deudaDeCita(c) { return deudaDe(fichaDeCita(c)); }
 function guardarDeuda(c, euros) {
+  // En la cita: apuntar la deuda (resta de ingresos) o, si ya ha pagado, quitarla de todas sus citas (vuelve a sumar)
+  var dig = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
+  var tel = dig(c['Teléfono']||c.Telefono), nom = (c.Nombre||'').toLowerCase().trim();
+  var citasP = [];
+  if (euros > 0 && c.ID) {
+    var n1 = obsConDeuda(c.Notas, euros);
+    app.citas.forEach(function(x){ if (String(x.ID)===String(c.ID)) x.Notas = n1; });
+    if (app.modal && String(app.modal.ID)===String(c.ID)) app.modal.Notas = n1;
+    citasP.push(apiPatch('Citas','ID',c.ID,{Notas: n1}));
+  } else if (!(euros > 0)) {
+    app.citas.forEach(function(x){
+      if (!RE_DEUDA.test(String(x.Notas||''))) return;
+      if (!((tel && dig(x['Teléfono']||x.Telefono) === tel) || (nom && (x.Nombre||'').toLowerCase().trim() === nom))) return;
+      x.Notas = obsSinDeuda(x.Notas);
+      citasP.push(apiPatch('Citas','ID',x.ID,{Notas: x.Notas}));
+    });
+    if (app.modal) app.modal.Notas = obsSinDeuda(app.modal.Notas);
+  }
+  return Promise.all(citasP).then(function(){ return guardarDeudaFicha(c, euros); });
+}
+function guardarDeudaFicha(c, euros) {
   var cl = fichaDeCita(c);
   if (cl) {
     var obs = obsConDeuda(cl.Observaciones, euros);
@@ -1790,7 +1813,7 @@ function metodoPago(c) {
   return m ? (m[1].toLowerCase()==='bizum' ? 'Bizum' : 'Efectivo') : '';
 }
 function notasSinPago(n) {
-  return String(n||'').replace(/Pago:\s*(Bizum|Efectivo)\.?\s*/gi,'').trim();
+  return String(n||'').replace(/Pago:\s*(Bizum|Efectivo)\.?\s*/gi,'').replace(RE_DEUDA,'').trim();
 }
 function renderPago(c) {
   var p = metodoPago(c);

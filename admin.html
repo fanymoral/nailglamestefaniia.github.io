@@ -577,7 +577,8 @@ function renderClientas() {
       +'<div class="form-row"><label class="form-label">Alergias o sensibilidades</label><input class="form-input" id="cfAlergias" value="'+esc(ec.Alergias||'')+'" placeholder="Ej: Alérgica al metacrilato..."></div>'
       +'<div class="form-row"><label class="form-label">Notas personales</label><textarea class="form-input" id="cfNotas" placeholder="Cualquier cosa que debas recordar...">'+esc(ec.Notas||'')+'</textarea></div>'
       +'<div class="form-row"><label class="form-label">Cumpleaños</label><input class="form-input" id="cfCumple" type="text" placeholder="Ej: 15/03" value="'+esc(ec['Cumpleaños']||'')+'" maxlength="5"></div>'
-      +'<div class="form-row"><label class="form-label">Observaciones (solo para ti)</label><textarea class="form-input" id="cfObs" placeholder="Productos que le van bien, preferencias, detalles del servicio...">'+esc(ec.Observaciones||'')+'</textarea></div>'
+      +'<div class="form-row"><label class="form-label">Observaciones (solo para ti)</label><textarea class="form-input" id="cfObs" placeholder="Productos que le van bien, preferencias, detalles del servicio...">'+esc(obsSinDeuda(ec.Observaciones))+'</textarea></div>'
+      +'<div class="form-row"><label class="form-label">💸 Me debe (€)</label><input class="form-input" id="cfDebe" type="number" min="0" step="0.5" value="'+(deudaDe(ec)||'')+'" placeholder="0"></div>'
       +'<div class="form-row"><label class="form-label">Bono activo</label><select class="form-input" id="cfBono"><option value="">Sin bono</option><option value="Bono 3 Semipermanentes" '+(ec.Bono==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(ec.Bono==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(ec.Bono==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(ec.Bono==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (78€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(ec.Bono==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(ec.Bono==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>'
       +'<div class="form-row"><label class="form-label">Sesiones restantes del bono</label><input class="form-input" id="cfBonoSesiones" type="number" min="0" max="3" value="'+(String(ec.BonoSesiones||'')!==''?esc(ec.BonoSesiones):3)+'" placeholder="3"></div>'
       +'<div style="display:flex;gap:0.8rem;margin-top:0.5rem">'
@@ -605,7 +606,8 @@ function renderClientas() {
         +(c.Alergias?'<div class="clienta-field"><div class="clienta-field-label">Alergias</div><div class="clienta-field-val">'+esc(c.Alergias)+'</div></div>':'')
         +(c.Bono?'<div class="clienta-field"><div class="clienta-field-label">🎟️ Bono activo</div><div class="clienta-field-val">'+esc(c.Bono)+' · '+esc(c.BonoSesiones||'?')+' sesión(es) restante(s)<br><span style="font-size:0.7rem;color:var(--warm-gray)">Validez: 4 meses desde la compra</span></div></div>':'')
         +(c['Cumpleaños']?'<div class="clienta-field"><div class="clienta-field-label">🎂 Cumpleaños</div><div class="clienta-field-val">'+esc(c['Cumpleaños'])+'</div></div>':'')
-        +(c.Observaciones?'<div class="clienta-field"><div class="clienta-field-label">📝 Observaciones</div><div class="clienta-field-val">'+esc(c.Observaciones)+'</div></div>':'')
+        +(deudaDe(c)>0?'<div class="clienta-field" style="background:#FFF3E0;border-radius:8px;padding:0.3rem 0.5rem;"><div class="clienta-field-label" style="color:#B45309;">💸 Te debe</div><div class="clienta-field-val" style="color:#B45309;font-weight:500;">'+deudaDe(c)+'€</div></div>':'')
+        +(obsSinDeuda(c.Observaciones)?'<div class="clienta-field"><div class="clienta-field-label">📝 Observaciones</div><div class="clienta-field-val">'+esc(obsSinDeuda(c.Observaciones))+'</div></div>':'')
         +(c.Notas?'<div class="clienta-field"><div class="clienta-field-label">Notas</div><div class="clienta-field-val">'+esc(c.Notas)+'</div></div>':'')
         +'<div class="clienta-historial"><div class="clienta-historial-title">Últimas citas</div>'+histHtml+'</div>'
         +'<div class="clienta-actions"><button class="btn-edit" data-editidx="'+idx+'">✏️ Editar</button>'
@@ -1374,7 +1376,7 @@ function renderAgenda() {
           : durMin+'min';
         return '<div class="agenda-appt '+svcCls+'" data-cid="'+esc(c.ID)+'" draggable="true" style="top:'+topPct+'%;height:'+heightPx+'px;overflow:visible;z-index:2;'+extraStyle+'">'
           +'<div class="aa-time">'+esc(c.Hora)+(hasBono?' 🎟️':'')+'<span class="aa-dur"> · '+durLabel+'</span></div>'
-          +'<div class="aa-name">'+esc(c.Nombre)+(metodoPago(c)==='Bizum'?' 📱':'')+'</div>'
+          +'<div class="aa-name">'+esc(c.Nombre)+(metodoPago(c)==='Bizum'?' 📱':'')+(deudaDeCita(c)>0?' 💸':'')+'</div>'
           +'<div class="aa-service">'+esc(c.Servicio)+'</div>'
           +'</div>';
       }).join('');
@@ -1610,6 +1612,38 @@ function renderBloquear() {
 }
 
 // Ficha con bono de la clienta de una cita. Si hay fichas repetidas, la del mismo teléfono y con menos sesiones
+// ── Deudas: se guardan dentro de "Observaciones" de la ficha como «💸 Debe: 15€.» ──
+var RE_DEUDA = /\s*💸\s*Debe:\s*([\d.,]+)\s*€\.?/;
+function deudaDe(cl) { var m = String((cl&&cl.Observaciones)||'').match(RE_DEUDA); return m ? (parseFloat(m[1].replace(',','.'))||0) : 0; }
+function obsSinDeuda(t) { return String(t||'').replace(RE_DEUDA,'').trim(); }
+function obsConDeuda(t, euros) { var b = obsSinDeuda(t); return euros > 0 ? (b ? b+' ' : '')+'💸 Debe: '+(Math.round(euros*100)/100)+'€.' : b; }
+function fichaDeCita(c) {
+  var dig = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
+  var tel = dig(c['Teléfono']||c.Telefono), nom = (c.Nombre||'').toLowerCase().trim();
+  return (app.clientas||[]).find(function(x){ return tel && dig(x['Teléfono']) === tel; })
+      || (app.clientas||[]).find(function(x){ return nom && (x.Nombre||'').toLowerCase().trim() === nom; }) || null;
+}
+function deudaDeCita(c) { return deudaDe(fichaDeCita(c)); }
+function guardarDeuda(c, euros) {
+  var cl = fichaDeCita(c);
+  if (cl) {
+    var obs = obsConDeuda(cl.Observaciones, euros);
+    cl.Observaciones = obs; render();
+    return apiPatch('Clientas','Nombre',cl.Nombre,{Observaciones: obs});
+  }
+  var nueva = {Nombre: c.Nombre||'', 'Teléfono': c['Teléfono']||c.Telefono||'', Observaciones: obsConDeuda('', euros)};
+  app.clientas.push(nueva); render();
+  return apiPost('Clientas', nueva);
+}
+function renderDeudaCita(c) {
+  var d = deudaDeCita(c);
+  if (d > 0) return '<div class="modal-row" style="background:#FFF3E0;border-radius:10px;padding:0.6rem 0.7rem;margin:0.3rem 0;"><span class="modal-label" style="color:#B45309;font-weight:500;">💸 Te debe</span>'
+    +'<span style="text-align:right;"><strong style="color:#B45309;font-size:1.05rem;">'+d+'€</strong><br>'
+    +'<button id="deudaPagadaBtn" style="margin-top:0.35rem;font-size:0.75rem;padding:0.3rem 0.7rem;background:#4CAF50;border:none;color:#fff;border-radius:8px;cursor:pointer;font-family:DM Sans,sans-serif;">✅ Ya me ha pagado</button></span></div>';
+  return '<div class="modal-row"><span class="modal-label">💸 Me debe</span><span style="display:inline-flex;gap:0.3rem;align-items:center;">'
+    +'<input id="deudaInput" type="number" min="0" step="0.5" placeholder="€" style="width:70px;border:1.5px solid var(--blush);border-radius:6px;padding:0.25rem 0.4rem;font-family:DM Sans,sans-serif;">'
+    +'<button id="deudaApuntarBtn" style="font-size:0.72rem;padding:0.3rem 0.6rem;background:none;border:1.5px solid #B45309;color:#B45309;border-radius:8px;cursor:pointer;font-family:DM Sans,sans-serif;">Apuntar</button></span></div>';
+}
 function elegirClientaBono(c) {
   var dig = function(t){ return String(t||'').replace(/\D/g,'').slice(-9); };
   var tel = dig(c['Teléfono']||c.Telefono);
@@ -1787,6 +1821,7 @@ function renderModal() {
     +bonoDeCita(c)
     +(!isCancelled ? renderModalAddBono(c) : '')
     +(!isCancelled ? renderPago(c) : '')
+    +renderDeudaCita(c)
     +(notasSinPago(c.Notas)?'<div class="modal-row"><span class="modal-label">Notas</span><span style="max-width:60%;text-align:right">'+esc(notasSinPago(notasConBono(c)))+'</span></div>':'')
     +'<div class="modal-row"><span class="modal-label">Estado</span><span>'+(isCancelled?'❌ Cancelada':(isCompleted?'✅ Completada':'✓ Confirmada'))+'</span></div>'
     +'<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.2rem;">'
@@ -2193,6 +2228,17 @@ function bindEvents() {
       }).catch(function(){ alert('No se ha podido guardar el pago. Inténtalo otra vez.'); loadData(); });
     });
   });
+  var dpb = document.getElementById('deudaPagadaBtn');
+  if (dpb) dpb.addEventListener('click', function(){
+    if (!confirm('¿Marcar la deuda como pagada?')) return;
+    guardarDeuda(app.modal, 0).catch(function(){ alert('No se ha podido guardar. Inténtalo otra vez.'); loadData(); });
+  });
+  var dab = document.getElementById('deudaApuntarBtn');
+  if (dab) dab.addEventListener('click', function(){
+    var v = parseFloat(String(document.getElementById('deudaInput').value||'').replace(',','.'));
+    if (!(v > 0)) { alert('Pon cuánto te debe, en euros.'); return; }
+    guardarDeuda(app.modal, v).catch(function(){ alert('No se ha podido guardar. Inténtalo otra vez.'); loadData(); });
+  });
   var mdb = document.getElementById('modalDoneBtn');
   if (mdb) mdb.addEventListener('click', function(){
     var cita = app.modal;
@@ -2526,7 +2572,7 @@ function bindEvents() {
       Alergias: document.getElementById('cfAlergias').value.trim(),
       Notas: document.getElementById('cfNotas').value.trim(),
       'Cumpleaños': document.getElementById('cfCumple').value.trim(),
-      Observaciones: document.getElementById('cfObs').value.trim(),
+      Observaciones: obsConDeuda(document.getElementById('cfObs').value.trim(), parseFloat(String(document.getElementById('cfDebe').value||'').replace(',','.'))||0),
       Bono: document.getElementById('cfBono').value,
       BonoTipo: document.getElementById('cfBono').value,
       BonoSesiones: document.getElementById('cfBono').value ? document.getElementById('cfBonoSesiones').value : ''

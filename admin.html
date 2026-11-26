@@ -1289,7 +1289,7 @@ function tjImagen(t){
     if (fondo.complete && fondo.naturalWidth) x.drawImage(fondo,0,0,W,H); else { x.fillStyle='#F3DAD6'; x.fillRect(0,0,W,H); }
     x.fillStyle=TINTA; x.textBaseline='alphabetic'; x.textAlign='left';
     x.font='500 28px '+sans; espaciado('TARJETA REGALO', 1155, 249-60, 7);
-    x.font='400 54px '+serif; x.fillText('Nail Glam Estefania', 227, 270);
+    x.font='400 54px '+serif; x.fillText('nails.estefaniam', 227, 270);
     // regalo + mensaje, centrados en su hueco (de y=338 a y=655)
     var corto = t.Tipo==='importe', fs = corto ? 129 : (tjValor(t).length > 18 ? 77 : 101), lh = fs*1.08;
     x.font='400 '+fs+'px '+serif; var lv = tjPartir(x, tjValor(t), 829).slice(0,2);

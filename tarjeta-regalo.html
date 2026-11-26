@@ -178,10 +178,12 @@
       {id:'pedicura', n:'Pedicura spa', p:30}, {id:'combo', n:'Semi manos + pies', p:38}
     ],
     presson: [
-      {id:'liso', n:'Lisas o rojo', p:12, oferta:true}, {id:'fr', n:'Micro francesa', p:14},
+      {id:'liso', n:'Lisas', p:12, oferta:true}, {id:'fr', n:'Micro francesa', p:14},
       {id:'ojo', n:'Ojo de gato', p:14}, {id:'deco', n:'Decoradas', p:16}
     ]
   };
+  // Suplemento por hacerlas a medida (fuera de las tallas S y M).
+  var SUPLEMENTO_MEDIDA = 3;
   var st = { tipo:'importe', op:'i30', libre:40, caja:true, talla:'M' };
   var $ = function(id){ return document.getElementById(id); };
   var codigo = 'NG-' + String(Math.floor(1000 + Math.random()*9000));
@@ -191,7 +193,7 @@
   function precio(){
     var o = opcion();
     if (st.tipo==='importe') return o.p == null ? (st.libre||0) : o.p;
-    if (st.tipo==='presson') return (o.oferta && ofertaRojo() ? 10 : o.p) + (st.caja ? 1 : 0);
+    if (st.tipo==='presson') return (o.oferta && ofertaRojo() ? 10 : o.p) + (st.caja ? 1 : 0) + (st.talla==='A medida' ? SUPLEMENTO_MEDIDA : 0);
     return o.p;
   }
   function textoValor(){
@@ -213,9 +215,9 @@
     }).join('');
     var ex = '';
     if (st.tipo==='importe' && st.op==='ilibre') ex = '<label class="campo"><span class="etq">Importe (€)</span><input type="number" id="libre" min="10" max="200" step="5" value="'+st.libre+'"></label>';
-    if (st.tipo==='presson') ex = '<div class="fila"><label class="campo"><span class="etq">Talla</span><select id="talla"><option '+(st.talla==='S'?'selected':'')+'>S</option><option '+(st.talla==='M'?'selected':'')+'>M</option><option value="No sé" '+(st.talla==='No sé'?'selected':'')+'>No la sé</option></select></label>'
+    if (st.tipo==='presson') ex = '<div class="fila"><label class="campo"><span class="etq">Talla</span><select id="talla"><option '+(st.talla==='S'?'selected':'')+'>S</option><option '+(st.talla==='M'?'selected':'')+'>M</option><option value="A medida" '+(st.talla==='A medida'?'selected':'')+'>A medida (+'+SUPLEMENTO_MEDIDA+' €)</option><option value="No sé" '+(st.talla==='No sé'?'selected':'')+'>No la sé</option></select></label>'
       + '<label class="check" style="align-self:end;padding-bottom:.6rem"><input type="checkbox" id="caja" '+(st.caja?'checked':'')+'> Caja regalo (+1 €)</label></div>'
-      + '<p class="nota">Si no sabes su talla, elige «No la sé» y se la tomo cuando venga a recogerlas.</p>';
+      + '<p class="nota">Si no sabes su talla, elige «No la sé» y se la tomo cuando venga a recogerlas. Si sus uñas no encajan en S ni en M, se hacen a medida por '+SUPLEMENTO_MEDIDA+' € más.</p>';
     if (st.tipo==='servicio') ex = '<p class="nota">Incluye la manicura combinada y el aceite de cutículas. La decoración se paga aparte el día de la cita.</p>';
     $('extra').innerHTML = ex;
   }
@@ -231,7 +233,7 @@
     $('cuenta').textContent = $('mensaje').value.length + '/60';
 
     var o = opcion(), filas = [['Regalo', st.tipo==='importe' ? 'Saldo de '+precio()+' €' : o.n]];
-    if (st.tipo==='presson') { filas.push(['Talla', st.talla]); if (st.caja) filas.push(['Caja regalo','+1 €']); }
+    if (st.tipo==='presson') { filas.push(['Talla', st.talla==='A medida' ? 'A medida (+'+SUPLEMENTO_MEDIDA+' €)' : st.talla]); if (st.caja) filas.push(['Caja regalo','+1 €']); }
     filas.push(['Validez', VALIDEZ_MESES+' meses']);
     $('resumen').innerHTML = filas.map(function(f){ return '<div><span>'+f[0]+'</span><span>'+esc(f[1])+'</span></div>'; }).join('')
       + '<div class="total"><span>Total</span><span>'+precio()+' €</span></div>';

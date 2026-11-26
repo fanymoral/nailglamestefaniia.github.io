@@ -78,7 +78,8 @@
   .t-marca { font-family: var(--display); font-size: 6.2cqw; line-height: 1; }
   .t-marca em { font-style: italic; }
   .t-tipo { font-size: 2.6cqw; letter-spacing: .22em; text-transform: uppercase; font-weight: 600; color: var(--t-acento); white-space: nowrap; }
-  .t-centro { align-self: center; display: grid; gap: 1.2cqw; max-width: 90%; }
+  .t-centro { align-self: center; display: grid; gap: 1.2cqw; max-width: 70%; }
+  .tarjeta svg.lazo { position: absolute; right: 6%; top: 27%; width: 20%; pointer-events: none; }
   .t-valor { font-family: var(--display); font-size: 11cqw; line-height: .95; font-weight: 500; font-variant-numeric: lining-nums; overflow-wrap: anywhere; }
   .t-valor.largo { font-size: 7.4cqw; line-height: 1.05; }
   .t-msg { font-family: var(--display); font-style: italic; font-size: 3.9cqw; line-height: 1.25; overflow-wrap: anywhere; }
@@ -150,6 +151,21 @@
         <div>Para <b id="tPara"></b>De parte de <span id="tDe"></span></div>
         <div class="r">Válida hasta <b id="tFecha"></b><span class="t-cod" id="tCod"></span></div>
       </div>
+      <svg class="lazo" viewBox="0 0 120 100" aria-hidden="true">
+        <g fill="currentColor" opacity=".18">
+          <path d="M60 44 C42 16 10 18 13 40 C16 58 42 58 60 44 Z"/>
+          <path d="M60 44 C78 16 110 18 107 40 C104 58 78 58 60 44 Z"/>
+          <path d="M56 50 L40 92 L50 87 L56 97 L61 52 Z"/>
+          <path d="M64 50 L80 92 L70 87 L64 97 L59 52 Z"/>
+        </g>
+        <g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity=".6">
+          <path d="M60 44 C42 16 10 18 13 40 C16 58 42 58 60 44 Z"/>
+          <path d="M60 44 C78 16 110 18 107 40 C104 58 78 58 60 44 Z"/>
+          <path d="M56 50 L40 92 L50 87 L56 97 L61 52 Z"/>
+          <path d="M64 50 L80 92 L70 87 L64 97 L59 52 Z"/>
+        </g>
+        <ellipse cx="60" cy="46" rx="8" ry="9" fill="currentColor" opacity=".55"/>
+      </svg>
     </div>
 
     <div class="resumen" id="resumen"></div>

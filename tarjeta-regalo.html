@@ -219,7 +219,7 @@
 
   function pintarOpciones(){
     $('opciones').innerHTML = DATOS[st.tipo].map(function(o){
-      var pr = o.p == null ? 'Tú eliges' : (o.oferta && ofertaRojo() ? '10 €' : o.p+' €');
+      var pr = st.tipo==='importe' ? (o.p == null ? 'Tú eliges la cantidad' : 'Para gastar en lo que quiera') : (o.oferta && ofertaRojo() ? '10 €' : o.p+' €');
       var of = (o.oferta && st.tipo==='presson') ? '<em class="oferta">10 € hasta 7 dic</em>' : '';
       return '<button type="button" class="op" id="op-'+o.id+'" data-op="'+o.id+'" aria-pressed="'+(st.op===o.id)+'"><b>'+o.n+of+'</b><span>'+pr+'</span></button>';
     }).join('');

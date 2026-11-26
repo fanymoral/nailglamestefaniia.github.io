@@ -36,7 +36,7 @@
   main { max-width: 980px; margin: 0 auto; padding-block: 2rem 3.5rem;
     padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem; align-items: start; }
-  @media (max-width: 760px) { main { grid-template-columns: minmax(0,1fr); gap: 1.6rem; } .vista { order: -1; } }
+  @media (max-width: 760px) { main { grid-template-columns: minmax(0,1fr); gap: 1.6rem; } }
 
   h2 { font-family: var(--display); font-weight: 500; font-size: 1.35rem; margin: 0 0 .7rem; text-wrap: balance; }
   .paso { display: grid; gap: .7rem; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--linea); }
@@ -68,7 +68,8 @@
 
 
   /* Tarjeta */
-  .vista { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 1rem); display: grid; gap: 1rem; }
+  .vista { display: grid; gap: 1rem; }
+  @media (min-width: 761px) { .vista { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 1rem); } }
   .tarjeta { --t-fondo: var(--rosa); --t-tinta: var(--ciruela); --t-acento: var(--salvia-osc); --t-linea: rgba(74,34,56,.22);
     aspect-ratio: 1.586; width: 100%; max-width: 100%; border-radius: 18px; background: var(--t-fondo); color: var(--t-tinta);
     position: relative; overflow: hidden; padding: 6% 7%; display: grid; grid-template-rows: auto 1fr auto; container-type: inline-size;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nail Glam Estefania — Panel de Administración</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400&family=Playfair+Display:wght@400;700&family=Parisienne&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --cream: #FFF8FB; --blush: #F2C4D8; --rose: #E8829F;
@@ -1188,7 +1188,7 @@ function renderNuevaTarjeta(){
     +'<div>'+lab('Regalo (si es servicio o press-on)')+'<input id="tjRegalo" '+inp+' placeholder="Ej: Semipermanente"></div>'
     +'<div>'+lab('Pagado (€)')+'<input id="tjImporte" type="number" min="0" step="1" '+inp+' placeholder="30"></div>'
     +'</div>'
-    +lab('Mensaje (opcional)')+'<input id="tjMensaje" '+inp+' maxlength="90" placeholder="Para que te mimes un poquito">'
+    +lab('Mensaje (opcional)')+'<input id="tjMensaje" '+inp+' maxlength="60" placeholder="Para que te mimes un poquito">'
     +'<div id="tjErr" style="color:#D9534F;font-size:0.8rem;margin-top:0.5rem;"></div>'
     +'<div style="display:flex;gap:0.5rem;margin-top:0.9rem;">'
     +'<button data-tj="guardar" class="btn-primary" style="flex:1;padding:0.7rem;background:var(--espresso);color:var(--cream);border:none;border-radius:10px;cursor:pointer;font-family:DM Sans,sans-serif;">Guardar tarjeta</button>'
@@ -1275,37 +1275,37 @@ function tjActualizar(cod, cambios){
 
 // Dibuja la tarjeta en una imagen para mandarla por WhatsApp
 function tjImagen(t){
-  var C = ['#F2CAD5','#4A2238','#6F8463']; // rosa suave, ciruela, verde salvia
-  var W=1200, H=756, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
-  var x=cv.getContext('2d');
-  var serif="'Cormorant Garamond', Georgia, serif", sans="'DM Sans', Arial, sans-serif";
+  // Misma tarjeta que en la web: imagen de fondo (tarjeta-fondo.jpg) y el texto encima
+  var W=1536, H=1024, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  var x=cv.getContext('2d'), TINTA='#3B1F24';
+  var serif="'Playfair Display', Georgia, serif", script="'Parisienne', 'Brush Script MT', cursive", sans="'DM Sans', Arial, sans-serif";
+  var fondo=new Image();
+  function cortar(txt, ancho){ txt=String(txt||''); if (x.measureText(txt).width<=ancho) return txt; while (txt && x.measureText(txt+'…').width>ancho) txt=txt.slice(0,-1); return txt+'…'; }
+  function espaciado(txt, xDer, y, sep){ // texto con letras separadas, alineado a la derecha
+    var ch=txt.split(''), total=ch.reduce(function(s,c){ return s+x.measureText(c).width+sep; },-sep), px=xDer-total;
+    ch.forEach(function(c){ x.fillText(c,px,y); px+=x.measureText(c).width+sep; });
+  }
   function dibujar(){
-    x.fillStyle=C[0]; x.beginPath(); if (x.roundRect) x.roundRect(0,0,W,H,40); else x.rect(0,0,W,H); x.fill();
-    // lazo de regalo a la derecha
-    x.save(); x.translate(W-330, 200); x.scale(2.1,2.1); x.lineJoin='round';
-    var LZ=['M60 44 C42 16 10 18 13 40 C16 58 42 58 60 44 Z','M60 44 C78 16 110 18 107 40 C104 58 78 58 60 44 Z','M56 50 L40 92 L50 87 L56 97 L61 52 Z','M64 50 L80 92 L70 87 L64 97 L59 52 Z'];
-    x.fillStyle=C[1]; x.globalAlpha=0.18; LZ.forEach(function(d){ x.fill(new Path2D(d)); });
-    x.strokeStyle=C[1]; x.lineWidth=2; x.globalAlpha=0.6; LZ.forEach(function(d){ x.stroke(new Path2D(d)); });
-    x.globalAlpha=0.55; x.beginPath(); x.ellipse(60,46,8,9,0,0,Math.PI*2); x.fill();
-    x.restore();
-    x.fillStyle=C[1]; x.textBaseline='alphabetic';
-    x.font='400 70px '+serif; x.fillText('Nail Glam ', 80, 130);
-    var w=x.measureText('Nail Glam ').width; x.font='italic 400 70px '+serif; x.fillText('Estefania', 80+w, 130);
-    x.fillStyle=C[2]; x.font='600 26px '+sans; x.textAlign='right';
-    x.fillText('T A R J E T A   R E G A L O', W-80, 122); x.textAlign='left';
-    x.fillStyle=C[1];
-    var valor = tjValor(t), size = t.Tipo==='importe' ? 150 : 84;
-    x.font='500 '+size+'px '+serif;
-    var lineas = tjPartir(x, valor, 740), y = t.Tipo==='importe' ? 360 : 300;
-    lineas.slice(0,2).forEach(function(l,i){ x.fillText(l, 80, y + i*size*1.02); });
-    y += (Math.min(lineas.length,2)-1)*size*1.02 + 62;
-    if (t.Mensaje) { x.font='italic 400 42px '+serif; tjPartir(x, t.Mensaje, 760).slice(0,2).forEach(function(l,i){ x.fillText(l, 80, y + i*50); }); }
-    x.globalAlpha=0.25; x.fillRect(80, H-170, W-160, 2); x.globalAlpha=1;
-    x.font='400 26px '+sans; x.fillText('Para', 80, H-120); x.fillText('De parte de '+(t.De||''), 80, H-50);
-    x.font='600 34px '+sans; x.fillText(t.Para||'', 80, H-82);
-    x.textAlign='right'; x.font='400 26px '+sans; x.fillText('Válida hasta', W-80, H-120);
-    x.font='600 34px '+sans; x.fillText(tjFechaCorta(t.Caduca), W-80, H-82);
-    x.font='500 26px '+sans; x.fillText(t.Codigo, W-80, H-50); x.textAlign='left';
+    if (fondo.complete && fondo.naturalWidth) x.drawImage(fondo,0,0,W,H); else { x.fillStyle='#F3DAD6'; x.fillRect(0,0,W,H); }
+    x.fillStyle=TINTA; x.textBaseline='alphabetic'; x.textAlign='left';
+    x.font='500 28px '+sans; espaciado('TARJETA REGALO', 1155, 249-60, 7);
+    x.font='400 54px '+serif; x.fillText('Nail Glam Estefania', 227, 270);
+    // regalo + mensaje, centrados en su hueco (de y=338 a y=655)
+    var corto = t.Tipo==='importe', fs = corto ? 129 : (tjValor(t).length > 18 ? 77 : 101), lh = fs*1.08;
+    x.font='400 '+fs+'px '+serif; var lv = tjPartir(x, tjValor(t), 829).slice(0,2);
+    var msg = t.Mensaje ? t.Mensaje+' ♡' : '';
+    var ms = (t.Mensaje||'').length > 32 ? 52 : 66, mlh = ms*1.15;
+    x.font='400 '+ms+'px '+script; var lm = msg ? tjPartir(x, msg, 820).slice(0,2) : [];
+    var alto = lv.length*lh + (lm.length ? 18 + lm.length*mlh : 0), y = 338 + (317-alto)/2;
+    x.font='400 '+fs+'px '+serif; lv.forEach(function(l){ x.fillText(l, 154, y + fs*0.86); y += lh; });
+    if (lm.length) { y += 18; x.font='400 '+ms+'px '+script; lm.forEach(function(l){ x.fillText(l, 163, y + ms*0.88); y += mlh; }); }
+    // abajo
+    x.font='400 32px '+sans; x.fillText('Para:', 117, 756); x.fillText('Válida hasta:', 673, 756);
+    x.font='700 55px '+serif; x.fillText(cortar(t.Para, 250), 117, 821); x.fillText(tjFechaCorta(t.Caduca), 673, 821);
+    x.font='400 32px '+sans; x.fillText(cortar('De parte de '+(t.De||''), 440), 117, 897);
+    x.font='400 35px '+sans; x.fillText(t.Codigo, 673, 884);
+    x.save(); x.translate(378,733); x.scale(1.77,1.77); x.strokeStyle=TINTA; x.lineWidth=1.6; x.lineCap='round';
+    x.stroke(new Path2D('M20 44 C14 36 4 28 4 17 C4 9 10 5 15 7 C19 9 20 14 20 17 C20 13 22 6 28 5 C34 4 37 10 36 17 C35 27 26 36 18 48 C16 51 14 50 13 47')); x.restore();
     cv.toBlob(function(blob){
       var nombre = 'tarjeta-regalo-'+t.Codigo+'.png';
       try {
@@ -1315,9 +1315,9 @@ function tjImagen(t){
       var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nombre; document.body.appendChild(a); a.click(); a.remove();
     }, 'image/png');
   }
-  if (document.fonts && document.fonts.load) {
-    Promise.all([document.fonts.load('400 70px "Cormorant Garamond"'), document.fonts.load('italic 400 70px "Cormorant Garamond"'), document.fonts.load('600 30px "DM Sans"')]).then(dibujar, dibujar);
-  } else dibujar();
+  var cargaFondo = new Promise(function(ok){ fondo.onload=ok; fondo.onerror=ok; fondo.src='tarjeta-fondo.jpg'; });
+  var cargaLetras = (document.fonts && document.fonts.load) ? Promise.all([document.fonts.load('400 54px "Playfair Display"'), document.fonts.load('700 55px "Playfair Display"'), document.fonts.load('400 66px "Parisienne"'), document.fonts.load('400 30px "DM Sans"')]).catch(function(){}) : Promise.resolve();
+  Promise.all([cargaFondo, cargaLetras]).then(dibujar, dibujar);
 }
 function tjPartir(x, texto, ancho){
   var palabras=String(texto).split(' '), out=[], l='';

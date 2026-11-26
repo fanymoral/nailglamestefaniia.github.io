@@ -1278,12 +1278,6 @@ function tjImagen(t){
   var serif="'Cormorant Garamond', Georgia, serif", sans="'DM Sans', Arial, sans-serif";
   function dibujar(){
     x.fillStyle=C[0]; x.beginPath(); if (x.roundRect) x.roundRect(0,0,W,H,40); else x.rect(0,0,W,H); x.fill();
-    // uñas
-    x.save(); x.translate(W-300, 190); x.scale(2.2,2.2); x.strokeStyle=C[1]; x.globalAlpha=0.5; x.lineWidth=1.5;
-    [['M30 118 C26 80 30 52 42 40 C54 52 58 80 54 118'],['M62 118 C58 74 62 40 76 26 C90 40 94 74 90 118'],['M96 118 C93 86 96 64 106 54 C116 64 119 86 116 118']].forEach(function(d){ x.stroke(new Path2D(d[0])); });
-    x.globalAlpha=0.15; x.fillStyle=C[1];
-    ['M33 118 C30 84 33 58 42 47 C51 58 54 84 51 118Z','M65 118 C62 78 65 46 76 33 C87 46 90 78 87 118Z','M99 118 C97 90 99 70 106 61 C113 70 116 90 113 118Z'].forEach(function(d){ x.fill(new Path2D(d)); });
-    x.restore();
     x.fillStyle=C[1]; x.textBaseline='alphabetic';
     x.font='400 70px '+serif; x.fillText('Nail Glam ', 80, 130);
     var w=x.measureText('Nail Glam ').width; x.font='italic 400 70px '+serif; x.fillText('Estefania', 80+w, 130);

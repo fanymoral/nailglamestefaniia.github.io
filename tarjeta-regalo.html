@@ -74,13 +74,11 @@
     aspect-ratio: 1.586; width: 100%; max-width: 100%; border-radius: 18px; background: var(--t-fondo); color: var(--t-tinta);
     position: relative; overflow: hidden; padding: 6% 7%; display: grid; grid-template-rows: auto 1fr auto; container-type: inline-size;
     box-shadow: 0 18px 40px -18px rgba(74,34,56,.45); transition: background .3s, color .3s; }
-  /* dibujo: tres uñas almendra en la esquina */
-  .tarjeta svg.unas { position: absolute; right: 5%; top: 24%; width: 22%; opacity: .9; pointer-events: none; }
   .t-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
   .t-marca { font-family: var(--display); font-size: 6.2cqw; line-height: 1; }
   .t-marca em { font-style: italic; }
   .t-tipo { font-size: 2.6cqw; letter-spacing: .22em; text-transform: uppercase; font-weight: 600; color: var(--t-acento); white-space: nowrap; }
-  .t-centro { align-self: center; display: grid; gap: 1.2cqw; max-width: 68%; }
+  .t-centro { align-self: center; display: grid; gap: 1.2cqw; max-width: 90%; }
   .t-valor { font-family: var(--display); font-size: 11cqw; line-height: .95; font-weight: 500; font-variant-numeric: lining-nums; overflow-wrap: anywhere; }
   .t-valor.largo { font-size: 7.4cqw; line-height: 1.05; }
   .t-msg { font-family: var(--display); font-style: italic; font-size: 3.9cqw; line-height: 1.25; overflow-wrap: anywhere; }
@@ -152,18 +150,6 @@
         <div>Para <b id="tPara"></b>De parte de <span id="tDe"></span></div>
         <div class="r">Válida hasta <b id="tFecha"></b><span class="t-cod" id="tCod"></span></div>
       </div>
-      <svg class="unas" viewBox="0 0 120 120" aria-hidden="true">
-        <g fill="none" stroke="currentColor" stroke-width="2" opacity=".55">
-          <path d="M30 118 C26 80 30 52 42 40 C54 52 58 80 54 118"/>
-          <path d="M62 118 C58 74 62 40 76 26 C90 40 94 74 90 118"/>
-          <path d="M96 118 C93 86 96 64 106 54 C116 64 119 86 116 118"/>
-        </g>
-        <g fill="currentColor" opacity=".16">
-          <path d="M33 118 C30 84 33 58 42 47 C51 58 54 84 51 118Z"/>
-          <path d="M65 118 C62 78 65 46 76 33 C87 46 90 78 87 118Z"/>
-          <path d="M99 118 C97 90 99 70 106 61 C113 70 116 90 113 118Z"/>
-        </g>
-      </svg>
     </div>
 
     <div class="resumen" id="resumen"></div>

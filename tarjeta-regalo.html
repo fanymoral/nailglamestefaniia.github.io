@@ -57,7 +57,7 @@
   .oferta { display: inline-block; background: var(--salvia); color: var(--ciruela); font-size: .72rem; font-weight: 600; padding: .1rem .45rem; border-radius: 99px; margin-left: .3rem; }
 
   label.campo { display: grid; gap: .3rem; }
-  input[type=text], input[type=number], textarea, select { width: 100%; font: inherit; color: var(--ciruela); background: var(--blanco); border: 1.5px solid var(--linea); border-radius: 10px; padding: .65rem .85rem; }
+  input[type=text], input[type=tel], input[type=number], textarea, select { width: 100%; font: inherit; color: var(--ciruela); background: var(--blanco); border: 1.5px solid var(--linea); border-radius: 10px; padding: .65rem .85rem; }
   textarea { resize: vertical; min-height: 76px; }
   input:focus, textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--rosa-fuerte); outline-offset: 2px; }
   .fila { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
@@ -66,10 +66,6 @@
   .check { display: flex; gap: .5rem; align-items: center; font-size: .9rem; cursor: pointer; }
   .check input { width: 18px; height: 18px; accent-color: var(--ciruela); }
 
-  .estilos { display: flex; gap: .6rem; flex-wrap: wrap; }
-  .est { display: flex; align-items: center; gap: .45rem; border: 1.5px solid var(--linea); background: var(--blanco); border-radius: 99px; padding: .35rem .8rem .35rem .4rem; cursor: pointer; font: 500 .85rem var(--texto); color: var(--ciruela); }
-  .est i { width: 22px; height: 22px; border-radius: 50%; display: block; border: 1px solid rgba(0,0,0,.08); }
-  .est[aria-pressed="true"] { border-color: var(--ciruela); }
 
   /* Tarjeta */
   .vista { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 1rem); display: grid; gap: 1rem; }
@@ -77,8 +73,6 @@
     aspect-ratio: 1.586; width: 100%; max-width: 100%; border-radius: 18px; background: var(--t-fondo); color: var(--t-tinta);
     position: relative; overflow: hidden; padding: 6% 7%; display: grid; grid-template-rows: auto 1fr auto; container-type: inline-size;
     box-shadow: 0 18px 40px -18px rgba(74,34,56,.45); transition: background .3s, color .3s; }
-  .tarjeta[data-estilo="salvia"] { --t-fondo: var(--salvia); --t-tinta: var(--ciruela); --t-acento: var(--roto); --t-linea: rgba(74,34,56,.2); }
-  .tarjeta[data-estilo="ciruela"] { --t-fondo: var(--ciruela); --t-tinta: var(--roto); --t-acento: var(--rosa); --t-linea: rgba(251,247,242,.25); }
   /* dibujo: tres uñas almendra en la esquina */
   .tarjeta svg.unas { position: absolute; right: 5%; top: 24%; width: 22%; opacity: .9; pointer-events: none; }
   .t-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
@@ -140,17 +134,11 @@
         <textarea id="mensaje" maxlength="90" placeholder="Para que te mimes un poquito. ¡Feliz Navidad!"></textarea>
         <span class="cuenta" id="cuenta">0/90</span>
       </label>
-      <span class="etq">Diseño</span>
-      <div class="estilos">
-        <button type="button" class="est" data-estilo="rosa" aria-pressed="true" id="est-rosa"><i style="background:var(--rosa)"></i>Rosa</button>
-        <button type="button" class="est" data-estilo="salvia" aria-pressed="false" id="est-salvia"><i style="background:var(--salvia)"></i>Salvia</button>
-        <button type="button" class="est" data-estilo="ciruela" aria-pressed="false" id="est-ciruela"><i style="background:var(--ciruela)"></i>Ciruela</button>
-      </div>
     </section>
   </form>
 
   <aside class="vista">
-    <div class="tarjeta" id="tarjeta" data-estilo="rosa" aria-label="Vista previa de la tarjeta regalo">
+    <div class="tarjeta" id="tarjeta"aria-label="Vista previa de la tarjeta regalo">
       <div class="t-cab">
         <div class="t-marca">Nail Glam <em>Estefania</em></div>
         <div class="t-tipo">Tarjeta regalo</div>
@@ -205,7 +193,7 @@
       {id:'ojo', n:'Ojo de gato', p:14}, {id:'deco', n:'Decoradas', p:16}
     ]
   };
-  var st = { tipo:'importe', op:'i30', libre:40, caja:true, talla:'M', estilo:'rosa' };
+  var st = { tipo:'importe', op:'i30', libre:40, caja:true, talla:'M' };
   var $ = function(id){ return document.getElementById(id); };
   var codigo = 'NG-' + String(Math.floor(1000 + Math.random()*9000));
 
@@ -245,7 +233,6 @@
 
   function pintarTarjeta(){
     var t = $('tarjeta');
-    t.dataset.estilo = st.estilo;
     var v = $('tValor'); v.textContent = textoValor(); v.classList.toggle('largo', st.tipo!=='importe');
     $('tMsg').textContent = $('mensaje').value.trim();
     $('tPara').textContent = $('para').value.trim() || '…';
@@ -265,7 +252,6 @@
       + 'Para: ' + ($('para').value.trim()||'-') + '\n'
       + 'De parte de: ' + ($('de').value.trim()||'-') + '\n'
       + ($('mensaje').value.trim() ? 'Mensaje: ' + $('mensaje').value.trim() + '\n' : '')
-      + 'Diseño: ' + st.estilo + '\n'
       + 'Total: ' + precio() + ' €\n'
       + 'Código: ' + codigo;
     $('btnWa').href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(msg);
@@ -279,8 +265,6 @@
       pintarOpciones(); pintarTarjeta(); return; }
     var op = e.target.closest('.op');
     if (op) { st.op = op.dataset.op; pintarOpciones(); pintarTarjeta(); return; }
-    var est = e.target.closest('.est');
-    if (est) { st.estilo = est.dataset.estilo; document.querySelectorAll('.est').forEach(function(b){ b.setAttribute('aria-pressed', b===est); }); pintarTarjeta(); return; }
   });
   document.addEventListener('input', function(e){
     if (e.target.id==='libre') st.libre = Math.max(0, parseInt(e.target.value,10)||0);
@@ -302,7 +286,7 @@
       Para: $('para').value.trim(), De: $('de').value.trim(), Telefono: $('tel').value.trim(),
       Tipo: st.tipo, Regalo: st.tipo==='importe' ? '' : (st.tipo==='presson' ? 'Press-on '+o.n.toLowerCase()+' (talla '+st.talla+')'+(st.caja?' + caja regalo':'') : o.n),
       Importe: precio(), Saldo: st.tipo==='importe' ? precio() : '', Estado: 'pendiente', Canjeada: '',
-      Estilo: st.estilo, Mensaje: $('mensaje').value.trim() };
+      Mensaje: $('mensaje').value.trim() };
     var firma = JSON.stringify(fila);
     if (firma === apuntado) return; // no apuntarlo dos veces si pulsa otra vez
     apuntado = firma;

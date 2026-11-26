@@ -1130,7 +1130,7 @@ function renderLogin() {
 
 // ===================== TARJETAS REGALO =====================
 // Se guardan en la pestaña "Tarjetas" de la hoja de Google.
-// Columnas: Codigo, Fecha, Caduca, Para, De, Telefono, Tipo, Regalo, Importe, Saldo, Estado, Canjeada, Estilo, Mensaje
+// Columnas: Codigo, Fecha, Caduca, Para, De, Telefono, Tipo, Regalo, Importe, Saldo, Estado, Canjeada, Mensaje
 var TJ_VALIDEZ_MESES = 4;
 var TJ_TIPOS = {importe:'Importe', servicio:'Servicio', presson:'Press-on'};
 function tjHoyISO(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
@@ -1142,7 +1142,7 @@ function tjNorm(t){
     Codigo: String(t.Codigo||t.codigo||'').toUpperCase(), Fecha: String(t.Fecha||'').substring(0,10), Caduca: String(t.Caduca||'').substring(0,10),
     Para: t.Para||'', De: t.De||'', Telefono: String(t.Telefono||t['Teléfono']||''), Tipo: t.Tipo||'importe', Regalo: t.Regalo||'',
     Importe: tjNum(t.Importe), Saldo: (t.Saldo===''||t.Saldo==null) ? '' : tjNum(t.Saldo), Estado: t.Estado||'activa',
-    Canjeada: String(t.Canjeada||'').substring(0,10), Estilo: t.Estilo||'rosa', Mensaje: t.Mensaje||''
+    Canjeada: String(t.Canjeada||'').substring(0,10), Mensaje: t.Mensaje||''
   };
 }
 function tjCargar(){
@@ -1184,7 +1184,6 @@ function renderNuevaTarjeta(){
     +'<div>'+lab('Tipo')+'<select id="tjTipo" '+inp+'><option value="importe">Importe (saldo en €)</option><option value="servicio">Servicio</option><option value="presson">Press-on</option></select></div>'
     +'<div>'+lab('Regalo (si es servicio o press-on)')+'<input id="tjRegalo" '+inp+' placeholder="Ej: Semipermanente"></div>'
     +'<div>'+lab('Pagado (€)')+'<input id="tjImporte" type="number" min="0" step="1" '+inp+' placeholder="30"></div>'
-    +'<div>'+lab('Diseño')+'<select id="tjEstilo" '+inp+'><option value="rosa">Rosa</option><option value="salvia">Salvia</option><option value="ciruela">Ciruela</option></select></div>'
     +'</div>'
     +lab('Mensaje (opcional)')+'<input id="tjMensaje" '+inp+' maxlength="90" placeholder="Para que te mimes un poquito">'
     +'<div id="tjErr" style="color:#D9534F;font-size:0.8rem;margin-top:0.5rem;"></div>'
@@ -1273,7 +1272,7 @@ function tjActualizar(cod, cambios){
 
 // Dibuja la tarjeta en una imagen para mandarla por WhatsApp
 function tjImagen(t){
-  var C = {rosa:['#F2CAD5','#4A2238','#6F8463'], salvia:['#A7B79B','#4A2238','#FBF7F2'], ciruela:['#4A2238','#FBF7F2','#F2CAD5']}[t.Estilo] || ['#F2CAD5','#4A2238','#6F8463'];
+  var C = ['#F2CAD5','#4A2238','#6F8463']; // rosa suave, ciruela, verde salvia
   var W=1200, H=756, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
   var x=cv.getContext('2d');
   var serif="'Cormorant Garamond', Georgia, serif", sans="'DM Sans', Arial, sans-serif";
@@ -1344,7 +1343,7 @@ document.addEventListener('click', function(e){
     if (tipo!=='importe' && !v('tjRegalo')) { err.textContent='Escribe qué servicio o press-on regala.'; return; }
     var fila = { Codigo:codigo, Fecha:fecha, Caduca:tjSumarMeses(fecha, TJ_VALIDEZ_MESES), Para:v('tjPara'), De:v('tjDe'), Telefono:v('tjTel'),
       Tipo:tipo, Regalo: tipo==='importe' ? '' : v('tjRegalo'), Importe:importe, Saldo: tipo==='importe' ? importe : '', Estado:'activa', Canjeada:'',
-      Estilo:v('tjEstilo'), Mensaje:v('tjMensaje') };
+      Mensaje:v('tjMensaje') };
     b.disabled = true; b.textContent = 'Guardando...';
     apiPost('Tarjetas', fila).then(function(){
       app.tarjetas = [tjNorm(fila)].concat(app.tarjetas); app.tjNueva = false; render();

@@ -1289,7 +1289,8 @@ function tjImagen(t){
     if (fondo.complete && fondo.naturalWidth) x.drawImage(fondo,0,0,W,H); else { x.fillStyle='#F3DAD6'; x.fillRect(0,0,W,H); }
     x.fillStyle=TINTA; x.textBaseline='alphabetic'; x.textAlign='left';
     x.font='500 28px '+sans; espaciado('TARJETA REGALO', 1155, 249-60, 7);
-    x.font='400 54px '+serif; x.fillText('nails.estefaniam', 227, 270);
+    x.font='400 54px '+serif; x.fillText('Nail Glam Estefania', 227, 270);
+    x.font='400 27px '+sans; x.fillText('@nails.estefaniam', 229, 318);
     // regalo + mensaje, centrados en su hueco (de y=338 a y=655)
     var corto = t.Tipo==='importe', fs = corto ? 129 : (tjValor(t).length > 18 ? 77 : 101), lh = fs*1.08;
     x.font='400 '+fs+'px '+serif; var lv = tjPartir(x, tjValor(t), 829).slice(0,2);
@@ -2083,7 +2084,7 @@ function renderModal() {
   var c = app.modal;
   var tel = (c['Teléfono']||c.Telefono||'').replace(/[^0-9]/g,'');
   var waReminder = encodeURIComponent('Hola '+c.Nombre+'! Te escribo para recordarte tu cita el '+fmtDate(c.Fecha)+' a las '+c.Hora+' para '+c.Servicio+'.'+lineaBonoRecordatorio(c)+' Por favor, confirma tu asistencia. Hasta pronto!');
-  var waReview = encodeURIComponent('Hola '+c.Nombre+'! Espero que te haya encantado tu '+c.Servicio+'. Si tienes un momentito, me haria muchisima ilusion que subieras una foto a Instagram etiquetandome @nailglam.estefania Muchas gracias!');
+  var waReview = encodeURIComponent('Hola '+c.Nombre+'! Espero que te haya encantado tu '+c.Servicio+'. Si tienes un momentito, me haria muchisima ilusion que subieras una foto a Instagram etiquetandome @nails.estefaniam Muchas gracias!');
   var isCancelled = c.Estado==='cancelada';
   var isCompleted = c.Estado==='completada';
   return '<div class="modal-bg" id="modalBg">'

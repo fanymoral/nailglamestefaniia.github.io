@@ -295,7 +295,10 @@ var app = {
   citaFilter: '',
   listaEspera: [],
   diasEspeciales: [],
-  rescheduling: false
+  rescheduling: false,
+  tarjetas: [],
+  tjCargadas: false,
+  tjNueva: false
 };
 
 function switchTab(t){ app.tab=t; render(); }
@@ -1125,6 +1128,248 @@ function renderLogin() {
     +'</div></div>';
 }
 
+// ===================== TARJETAS REGALO =====================
+// Se guardan en la pestaña "Tarjetas" de la hoja de Google.
+// Columnas: Codigo, Fecha, Caduca, Para, De, Telefono, Tipo, Regalo, Importe, Saldo, Estado, Canjeada, Mensaje
+var TJ_VALIDEZ_MESES = 4;
+var TJ_TIPOS = {importe:'Importe', servicio:'Servicio', presson:'Press-on'};
+function tjHoyISO(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function tjSumarMeses(iso, m){ var d=new Date(iso+'T12:00:00'); var dia=d.getDate(); d.setMonth(d.getMonth()+m); if (d.getDate()<dia) d.setDate(0); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function tjFechaCorta(iso){ if(!iso) return ''; var p=String(iso).substring(0,10).split('-'); return p.length===3 ? parseInt(p[2])+'/'+parseInt(p[1])+'/'+p[0] : iso; }
+function tjNum(v){ var n=parseFloat(String(v==null?'':v).replace(',','.')); return isNaN(n)?0:n; }
+function tjNorm(t){
+  return {
+    Codigo: String(t.Codigo||t.codigo||'').toUpperCase(), Fecha: String(t.Fecha||'').substring(0,10), Caduca: String(t.Caduca||'').substring(0,10),
+    Para: t.Para||'', De: t.De||'', Telefono: String(t.Telefono||t['Teléfono']||''), Tipo: t.Tipo||'importe', Regalo: t.Regalo||'',
+    Importe: tjNum(t.Importe), Saldo: (t.Saldo===''||t.Saldo==null) ? '' : tjNum(t.Saldo), Estado: t.Estado||'activa',
+    Canjeada: String(t.Canjeada||'').substring(0,10), Mensaje: t.Mensaje||''
+  };
+}
+function tjCargar(){
+  if (app.tjCargando) return;
+  app.tjCargando = true;
+  fetchJSON(apiURL()+'&sheet=Tarjetas').then(function(rows){
+    app.tarjetas = (rows||[]).map(tjNorm).filter(function(t){ return t.Codigo; });
+    app.tjCargadas = true; app.tjCargando = false; render();
+  });
+}
+function tjEstado(t){
+  var hoy = tjHoyISO();
+  if (t.Estado==='pendiente') return 'pendiente';
+  if (t.Estado==='canjeada') return 'canjeada';
+  if (t.Caduca && t.Caduca < hoy) return 'caducada';
+  if (t.Caduca && t.Caduca <= tjSumarMeses(hoy, 1)) return 'pronto';
+  return 'activa';
+}
+function tjValor(t){ return t.Tipo==='importe' ? (t.Importe+' €') : (t.Regalo || TJ_TIPOS[t.Tipo]); }
+function tjNuevoCodigo(){
+  var usados = (app.tarjetas||[]).map(function(t){ return t.Codigo; }), c;
+  do { c = 'NG-'+(1000+Math.floor(Math.random()*9000)); } while (usados.indexOf(c)>=0);
+  return c;
+}
+
+function renderNuevaTarjeta(){
+  var hoy = tjHoyISO();
+  var inp = 'style="width:100%;padding:0.6rem 0.8rem;border:1.5px solid var(--light-gray);border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.9rem;background:var(--cream);color:var(--espresso);"';
+  var lab = function(t){ return '<label style="display:block;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--warm-gray);margin:0.7rem 0 0.3rem;">'+t+'</label>'; };
+  return '<div class="block-section" style="margin-bottom:1rem;border:1.5px solid var(--blush);">'
+    +'<div class="block-title">➕ Apuntar tarjeta vendida</div>'
+    +'<div style="font-size:0.78rem;color:var(--warm-gray);">Si la clienta te la pidió desde la web, copia el código que viene en su WhatsApp.</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 0.8rem;">'
+    +'<div>'+lab('Código')+'<input id="tjCod" '+inp+' value="'+tjNuevoCodigo()+'" maxlength="12"></div>'
+    +'<div>'+lab('Fecha de compra')+'<input id="tjFecha" type="date" '+inp+' value="'+hoy+'"></div>'
+    +'<div>'+lab('Para')+'<input id="tjPara" '+inp+' placeholder="Lucía"></div>'
+    +'<div>'+lab('De parte de')+'<input id="tjDe" '+inp+' placeholder="Mamá"></div>'
+    +'<div>'+lab('Teléfono de quien la compra')+'<input id="tjTel" type="tel" '+inp+' placeholder="612 345 678"></div>'
+    +'<div>'+lab('Tipo')+'<select id="tjTipo" '+inp+'><option value="importe">Importe (saldo en €)</option><option value="servicio">Servicio</option><option value="presson">Press-on</option></select></div>'
+    +'<div>'+lab('Regalo (si es servicio o press-on)')+'<input id="tjRegalo" '+inp+' placeholder="Ej: Semipermanente"></div>'
+    +'<div>'+lab('Pagado (€)')+'<input id="tjImporte" type="number" min="0" step="1" '+inp+' placeholder="30"></div>'
+    +'</div>'
+    +lab('Mensaje (opcional)')+'<input id="tjMensaje" '+inp+' maxlength="90" placeholder="Para que te mimes un poquito">'
+    +'<div id="tjErr" style="color:#D9534F;font-size:0.8rem;margin-top:0.5rem;"></div>'
+    +'<div style="display:flex;gap:0.5rem;margin-top:0.9rem;">'
+    +'<button data-tj="guardar" class="btn-primary" style="flex:1;padding:0.7rem;background:var(--espresso);color:var(--cream);border:none;border-radius:10px;cursor:pointer;font-family:DM Sans,sans-serif;">Guardar tarjeta</button>'
+    +'<button data-tj="cerrar" style="padding:0.7rem 1rem;background:none;border:1.5px solid var(--light-gray);border-radius:10px;cursor:pointer;font-family:DM Sans,sans-serif;color:var(--warm-gray);">Cancelar</button>'
+    +'</div></div>';
+}
+
+function renderTarjetas(){
+  if (!app.tjCargadas) { tjCargar(); return '<div class="block-section"><div class="no-citas">Cargando tarjetas regalo...</div></div>'; }
+  var lista = app.tarjetas || [];
+  var hoy = tjHoyISO(), mes = hoy.substring(0,7);
+  var activas = lista.filter(function(t){ var e=tjEstado(t); return e==='activa'||e==='pronto'; });
+  var pendiente = activas.reduce(function(s,t){ return s + (t.Tipo==='importe' ? (t.Saldo===''?t.Importe:t.Saldo) : t.Importe); },0);
+  var pendientes = lista.filter(function(t){ return t.Estado==='pendiente'; }).length;
+  var vendidoMes = lista.filter(function(t){ return t.Estado!=='pendiente' && t.Fecha.substring(0,7)===mes; }).reduce(function(s,t){ return s+t.Importe; },0);
+  var orden = {pendiente:0, pronto:1, activa:2, caducada:3, canjeada:4};
+  lista = lista.slice().sort(function(a,b){ var d=orden[tjEstado(a)]-orden[tjEstado(b)]; return d || (a.Caduca||'').localeCompare(b.Caduca||''); });
+
+  var resumen = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.6rem;margin:0.8rem 0 1rem;">'
+    +[[pendientes ? 'Activas · '+pendientes+' sin pagar' : 'Activas', activas.length], ['Por canjear', Math.round(pendiente)+' €'], ['Vendido este mes', Math.round(vendidoMes)+' €']].map(function(x){
+      return '<div style="background:var(--cream);border-radius:10px;padding:0.7rem;text-align:center;"><div style="font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--warm-gray);">'+x[0]+'</div><div style="font-family:Cormorant Garamond,serif;font-size:1.5rem;">'+x[1]+'</div></div>';
+    }).join('')+'</div>';
+
+  var items = lista.map(function(t){
+    var e = tjEstado(t);
+    var gris = (e==='canjeada'||e==='caducada');
+    var badge = {
+      pendiente: '<span style="background:#FFF3CD;color:#856404;">Pendiente de pago</span>',
+      activa: '<span style="background:#E8F5E9;color:#2E7D32;">Activa</span>',
+      pronto: '<span style="background:#FFF3E0;color:#B26A00;">Caduca pronto</span>',
+      caducada: '<span style="background:var(--light-gray);color:var(--warm-gray);">Caducada</span>',
+      canjeada: '<span style="background:var(--light-gray);color:var(--warm-gray);">Canjeada'+(t.Canjeada?' el '+tjFechaCorta(t.Canjeada):'')+'</span>'
+    }[e].replace('<span style="','<span style="font-size:0.68rem;padding:2px 8px;border-radius:99px;font-weight:500;');
+    var saldoTxt = t.Tipo==='importe' ? ' · Saldo: <strong>'+(t.Saldo===''?t.Importe:t.Saldo)+' €</strong>' : '';
+    var tel = (t.Telefono||'').replace(/\D/g,''); if (tel.length===9) tel='34'+tel;
+    var msg = encodeURIComponent('Hola! Aquí tienes la tarjeta regalo '+t.Codigo+' para '+(t.Para||'')+' 🎁\nRegalo: '+tjValor(t)+'\nVálida hasta el '+tjFechaCorta(t.Caduca)+'.\nPara usarla, reserva en https://fanymoral.github.io/nailglamestefaniia.github.io/reservas.html y escribe el código '+t.Codigo+'. Gracias!');
+    var bt = 'style="font-size:0.72rem;padding:0.35rem 0.7rem;border-radius:8px;cursor:pointer;font-family:DM Sans,sans-serif;';
+    var acciones = '';
+    if (e==='pendiente') {
+      acciones += '<button data-tj="pagada" data-cod="'+esc(t.Codigo)+'" '+bt+'background:#4CAF50;border:none;color:#fff;">💵 Marcar pagada</button>';
+    } else if (!gris || e==='caducada') {
+      if (t.Tipo==='importe' && e!=='caducada') {
+        acciones += '<input type="number" min="0" step="1" data-tjgasto="'+esc(t.Codigo)+'" placeholder="€ gastado" style="width:90px;padding:0.35rem 0.5rem;border:1.5px solid var(--light-gray);border-radius:8px;font-size:0.75rem;">'
+          +'<button data-tj="restar" data-cod="'+esc(t.Codigo)+'" '+bt+'background:#4CAF50;border:none;color:#fff;">− Restar</button>';
+      } else if (e!=='caducada') {
+        acciones += '<button data-tj="canjear" data-cod="'+esc(t.Codigo)+'" '+bt+'background:#4CAF50;border:none;color:#fff;">✓ Canjeada</button>';
+      }
+    }
+    if (e==='canjeada') acciones += '<button data-tj="activar" data-cod="'+esc(t.Codigo)+'" '+bt+'background:none;border:1.5px solid var(--warm-gray);color:var(--warm-gray);">↺ Volver a activar</button>';
+ if (e!=='pendiente') acciones += '<button data-tj="imagen" data-cod="'+esc(t.Codigo)+'" '+bt+'background:var(--espresso);border:none;color:var(--cream);">🖼️ Imagen</button>';
+    if (tel && e!=='pendiente') acciones += '<a href="https://wa.me/'+tel+'?text='+msg+'" target="_blank" class="btn-wa" style="font-size:0.72rem;padding:0.35rem 0.7rem;">📲 Enviar</a>';
+    acciones += '<button data-tj="borrar" data-cod="'+esc(t.Codigo)+'" '+bt+'background:none;border:1.5px solid #D9534F;color:#D9534F;">🗑️</button>';
+    var buscable = (t.Codigo+' '+t.Para+' '+t.De+' '+t.Telefono).toLowerCase();
+    return '<div class="cita-card tj-card" data-buscar="'+esc(buscable)+'" style="display:block;'+(gris?'opacity:0.6;':'')+'">'
+      +'<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;align-items:flex-start;">'
+      +'<div><div class="cita-nombre">'+esc(t.Codigo)+' · '+esc(t.Para||'Sin nombre')+' '+badge+'</div>'
+      +'<div class="cita-tel" style="margin-top:0.2rem;">🎁 '+(t.Tipo==='presson'?'':esc(TJ_TIPOS[t.Tipo]||t.Tipo)+': ')+esc(tjValor(t))+saldoTxt+'</div>'
+      +'<div class="cita-tel">De '+esc(t.De||'-')+(t.Telefono?' · 📱 '+esc(t.Telefono):'')+' · '+(e==='pendiente'?'A pagar':'Pagado')+' '+t.Importe+' €</div>'
+      +(e==='pendiente'
+        ? '<div class="cita-tel">Pedida desde la web el '+tjFechaCorta(t.Fecha)+(t.Mensaje?' · «'+esc(t.Mensaje)+'»':'')+'</div>'
+        : '<div class="cita-tel">Comprada el '+tjFechaCorta(t.Fecha)+' · Válida hasta el <strong>'+tjFechaCorta(t.Caduca)+'</strong></div>')
+      +'</div></div>'
+      +'<div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.7rem;align-items:center;">'+acciones+'</div>'
+      +'</div>';
+  }).join('');
+
+  return (app.tjNueva ? renderNuevaTarjeta() : '')
+    +'<div class="block-section">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;"><div class="block-title">🎁 Tarjetas regalo</div>'
+    +(app.tjNueva?'':'<button data-tj="nueva" style="background:var(--espresso);color:var(--cream);border:none;border-radius:8px;padding:0.45rem 0.9rem;font-size:0.78rem;cursor:pointer;font-family:DM Sans,sans-serif;">➕ Apuntar tarjeta</button>')
+    +'</div>'
+    +resumen
+    +(lista.length ? '<input id="tjBuscar" placeholder="Buscar por código, nombre o teléfono" style="width:100%;padding:0.6rem 0.8rem;border:1.5px solid var(--light-gray);border-radius:10px;font-family:DM Sans,sans-serif;font-size:0.88rem;margin-bottom:0.8rem;">' : '')
+    +(lista.length ? '<div style="display:grid;gap:0.6rem;">'+items+'</div>' : '<div class="no-citas">Todavía no hay tarjetas apuntadas. Cuando vendas una, pulsa «Apuntar tarjeta».</div>')
+    +'<div style="font-size:0.72rem;color:var(--warm-gray);margin-top:1rem;line-height:1.5;">Se guardan en la pestaña <strong>Tarjetas</strong> de tu hoja de Google. Validez: '+TJ_VALIDEZ_MESES+' meses desde la compra. Los pedidos de la web entran como «Pendiente de pago»: al cobrarla, pulsa «Marcar pagada» y empieza a contar la validez.</div>'
+    +'</div>';
+}
+
+function tjActualizar(cod, cambios){
+  app.tarjetas = app.tarjetas.map(function(t){ return t.Codigo===cod ? Object.assign({}, t, cambios) : t; });
+  render();
+  apiPatch('Tarjetas','Codigo',cod,cambios).catch(function(){ alert('No se ha podido guardar el cambio. Revisa la conexión.'); });
+}
+
+// Dibuja la tarjeta en una imagen para mandarla por WhatsApp
+function tjImagen(t){
+  var C = ['#F2CAD5','#4A2238','#6F8463']; // rosa suave, ciruela, verde salvia
+  var W=1200, H=756, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  var x=cv.getContext('2d');
+  var serif="'Cormorant Garamond', Georgia, serif", sans="'DM Sans', Arial, sans-serif";
+  function dibujar(){
+    x.fillStyle=C[0]; x.beginPath(); if (x.roundRect) x.roundRect(0,0,W,H,40); else x.rect(0,0,W,H); x.fill();
+    // uñas
+    x.save(); x.translate(W-300, 190); x.scale(2.2,2.2); x.strokeStyle=C[1]; x.globalAlpha=0.5; x.lineWidth=1.5;
+    [['M30 118 C26 80 30 52 42 40 C54 52 58 80 54 118'],['M62 118 C58 74 62 40 76 26 C90 40 94 74 90 118'],['M96 118 C93 86 96 64 106 54 C116 64 119 86 116 118']].forEach(function(d){ x.stroke(new Path2D(d[0])); });
+    x.globalAlpha=0.15; x.fillStyle=C[1];
+    ['M33 118 C30 84 33 58 42 47 C51 58 54 84 51 118Z','M65 118 C62 78 65 46 76 33 C87 46 90 78 87 118Z','M99 118 C97 90 99 70 106 61 C113 70 116 90 113 118Z'].forEach(function(d){ x.fill(new Path2D(d)); });
+    x.restore();
+    x.fillStyle=C[1]; x.textBaseline='alphabetic';
+    x.font='400 70px '+serif; x.fillText('Nail Glam ', 80, 130);
+    var w=x.measureText('Nail Glam ').width; x.font='italic 400 70px '+serif; x.fillText('Estefania', 80+w, 130);
+    x.fillStyle=C[2]; x.font='600 26px '+sans; x.textAlign='right';
+    x.fillText('T A R J E T A   R E G A L O', W-80, 122); x.textAlign='left';
+    x.fillStyle=C[1];
+    var valor = tjValor(t), size = t.Tipo==='importe' ? 150 : 84;
+    x.font='500 '+size+'px '+serif;
+    var lineas = tjPartir(x, valor, 760), y = t.Tipo==='importe' ? 360 : 300;
+    lineas.slice(0,2).forEach(function(l,i){ x.fillText(l, 80, y + i*size*1.02); });
+    y += (Math.min(lineas.length,2)-1)*size*1.02 + 62;
+    if (t.Mensaje) { x.font='italic 400 42px '+serif; tjPartir(x, t.Mensaje, 760).slice(0,2).forEach(function(l,i){ x.fillText(l, 80, y + i*50); }); }
+    x.globalAlpha=0.25; x.fillRect(80, H-170, W-160, 2); x.globalAlpha=1;
+    x.font='400 26px '+sans; x.fillText('Para', 80, H-120); x.fillText('De parte de '+(t.De||''), 80, H-50);
+    x.font='600 34px '+sans; x.fillText(t.Para||'', 80, H-82);
+    x.textAlign='right'; x.font='400 26px '+sans; x.fillText('Válida hasta', W-80, H-120);
+    x.font='600 34px '+sans; x.fillText(tjFechaCorta(t.Caduca), W-80, H-82);
+    x.font='500 26px '+sans; x.fillText(t.Codigo, W-80, H-50); x.textAlign='left';
+    cv.toBlob(function(blob){
+      var nombre = 'tarjeta-regalo-'+t.Codigo+'.png';
+      try {
+        var f = new File([blob], nombre, {type:'image/png'});
+        if (navigator.canShare && navigator.canShare({files:[f]})) { navigator.share({files:[f], title:'Tarjeta regalo '+t.Codigo}).catch(function(){}); return; }
+      } catch(e) {}
+      var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nombre; document.body.appendChild(a); a.click(); a.remove();
+    }, 'image/png');
+  }
+  if (document.fonts && document.fonts.load) {
+    Promise.all([document.fonts.load('400 70px "Cormorant Garamond"'), document.fonts.load('italic 400 70px "Cormorant Garamond"'), document.fonts.load('600 30px "DM Sans"')]).then(dibujar, dibujar);
+  } else dibujar();
+}
+function tjPartir(x, texto, ancho){
+  var palabras=String(texto).split(' '), out=[], l='';
+  palabras.forEach(function(p){ var prueba=l?l+' '+p:p; if (x.measureText(prueba).width>ancho && l){ out.push(l); l=p; } else l=prueba; });
+  if (l) out.push(l); return out;
+}
+
+document.addEventListener('input', function(e){
+  if (e.target.id !== 'tjBuscar') return;
+  var q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.tj-card').forEach(function(c){ c.hidden = q && c.getAttribute('data-buscar').indexOf(q) < 0; });
+});
+document.addEventListener('click', function(e){
+  var b = e.target.closest('[data-tj]'); if (!b) return;
+  var acc = b.getAttribute('data-tj'), cod = b.getAttribute('data-cod');
+  var t = cod && (app.tarjetas||[]).find(function(x){ return x.Codigo===cod; });
+  if (acc==='nueva') { app.tjNueva = true; render(); return; }
+  if (acc==='cerrar') { app.tjNueva = false; render(); return; }
+  if (acc==='guardar') {
+    var v = function(id){ return (document.getElementById(id).value||'').trim(); };
+    var codigo = v('tjCod').toUpperCase().replace(/\s+/g,''), err = document.getElementById('tjErr');
+    var tipo = v('tjTipo'), importe = tjNum(v('tjImporte')), fecha = v('tjFecha') || tjHoyISO();
+    if (!codigo) { err.textContent='Pon un código.'; return; }
+    if (app.tarjetas.some(function(x){ return x.Codigo===codigo; })) { err.textContent='Ya hay una tarjeta con el código '+codigo+'.'; return; }
+    if (!v('tjPara')) { err.textContent='Escribe para quién es.'; return; }
+    if (!importe) { err.textContent='Escribe cuánto ha pagado.'; return; }
+    if (tipo!=='importe' && !v('tjRegalo')) { err.textContent='Escribe qué servicio o press-on regala.'; return; }
+    var fila = { Codigo:codigo, Fecha:fecha, Caduca:tjSumarMeses(fecha, TJ_VALIDEZ_MESES), Para:v('tjPara'), De:v('tjDe'), Telefono:v('tjTel'),
+      Tipo:tipo, Regalo: tipo==='importe' ? '' : v('tjRegalo'), Importe:importe, Saldo: tipo==='importe' ? importe : '', Estado:'activa', Canjeada:'',
+      Mensaje:v('tjMensaje') };
+    b.disabled = true; b.textContent = 'Guardando...';
+    apiPost('Tarjetas', fila).then(function(){
+      app.tarjetas = [tjNorm(fila)].concat(app.tarjetas); app.tjNueva = false; render();
+    }).catch(function(){ b.disabled=false; b.textContent='Guardar tarjeta'; err.textContent='No se ha podido guardar. Revisa la conexión.'; });
+    return;
+  }
+  if (!t) return;
+  if (acc==='pagada') { var hoyP=tjHoyISO(); tjActualizar(cod, {Estado:'activa', Fecha:hoyP, Caduca:tjSumarMeses(hoyP, TJ_VALIDEZ_MESES)}); return; }
+  if (acc==='canjear') { tjActualizar(cod, {Estado:'canjeada', Canjeada:tjHoyISO()}); return; }
+  if (acc==='activar') { tjActualizar(cod, {Estado:'activa', Canjeada:''}); return; }
+  if (acc==='restar') {
+    var inp = document.querySelector('[data-tjgasto="'+cod+'"]'), gasto = tjNum(inp && inp.value);
+    if (!gasto) { inp && inp.focus(); return; }
+    var saldo = Math.max(0, (t.Saldo===''?t.Importe:t.Saldo) - gasto);
+    tjActualizar(cod, saldo===0 ? {Saldo:0, Estado:'canjeada', Canjeada:tjHoyISO()} : {Saldo:saldo});
+    return;
+  }
+  if (acc==='imagen') { tjImagen(t); return; }
+  if (acc==='borrar') {
+    if (!confirm('¿Borrar la tarjeta '+cod+'? No se puede deshacer.')) return;
+    app.tarjetas = app.tarjetas.filter(function(x){ return x.Codigo!==cod; }); render();
+    apiDelete('Tarjetas','Codigo',cod);
+  }
+});
+// =================== FIN TARJETAS REGALO ===================
+
 function renderAdmin() {
   var inner = '';
   if (app.loading) {
@@ -1143,6 +1388,8 @@ function renderAdmin() {
     inner = renderEspera();
   } else if (app.tab==='bonos') {
     inner = renderBonos();
+  } else if (app.tab==='tarjetas') {
+    inner = renderTarjetas();
   } else if (app.tab==='lista') {
     inner = renderLista();
   } else {
@@ -1201,6 +1448,7 @@ function renderAdmin() {
     +'<button class="tab'+(app.tab==='stats'?' active':'')+'" data-tab="stats">📊 Estadísticas</button>'
     +'<button class="tab'+(app.tab==='espera'?' active':'')+'" data-tab="espera">⏳ Lista de espera</button>'
     +'<button class="tab'+(app.tab==='bonos'?' active':'')+'" data-tab="bonos">🎟️ Bonos</button>'
+    +'<button class="tab'+(app.tab==='tarjetas'?' active':'')+'" data-tab="tarjetas">🎁 Tarjetas regalo</button>'
 
     +'</div>'
     +inner

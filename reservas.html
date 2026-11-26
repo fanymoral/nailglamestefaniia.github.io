@@ -202,7 +202,7 @@ var state = {
   name:'', phone:'', notes:'',
   month: new Date().getMonth(), year: new Date().getFullYear(),
   bookedSlots: [], blockedDays: [], diasEspeciales: {}, loading: false,
-  clientaBonoSesiones: -1, clientaBono: '',
+  clientaBonoSesiones: -1, clientaBono: '', giftCode: '',
   hasBono: false, bonoType: '', firstTime: false, brokenNails: 0,
   showBrokenModal: false, showBonoModal: false, bonoShown: false,
   showDecoModal: false, showPayModal: false
@@ -682,6 +682,7 @@ function renderStep3() {
 
     +'<div class="form-row"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--espresso)"><input type="checkbox" id="iHasBono" '+(state.hasBono?'checked':'')+' style="width:18px;height:18px;accent-color:var(--rose)"> 🎟️ Tengo un bono</label></div>'
     +(state.hasBono?'<div class="form-row"><label class="form-label">¿Qué tipo de bono?</label><select class="form-input" id="iBonoType"><option value="">Selecciona...</option><option value="Bono 3 Semipermanentes" '+(state.bonoType==="Bono 3 Semipermanentes"?'selected':'')+'>Bono 3 Semipermanentes (50€)</option><option value="Bono 3 Refuerzo con Gel" '+(state.bonoType==="Bono 3 Refuerzo con Gel"?'selected':'')+'>Bono 3 Refuerzo con Gel (55€)</option><option value="Bono 3 Pies" '+(state.bonoType==="Bono 3 Pies"?'selected':'')+'>Bono 3 Pies (48€)</option><option value="Bono 3 Acrigel" '+(state.bonoType==="Bono 3 Acrigel"?'selected':'')+'>Bono 3 Acrigel (78€)</option><option value="Bono 3 Refuerzo Gel + Semi Pies" '+(state.bonoType==="Bono 3 Refuerzo Gel + Semi Pies"?'selected':'')+'>Bono 3 Refuerzo Gel + Semi Pies (105€)</option><option value="Bono 3 Semi Manos + Semi Pies" '+(state.bonoType==="Bono 3 Semi Manos + Semi Pies"?'selected':'')+'>Bono 3 Semi Manos + Semi Pies (100€)</option></select></div>':'')
+    +'<div class="form-row"><label class="form-label">🎁 ¿Tienes una tarjeta regalo? (opcional)</label><input class="form-input" id="iGiftCode" type="text" placeholder="Escribe su código, ej: NG-1234" value="'+esc(state.giftCode)+'" maxlength="12" style="text-transform:uppercase"></div>'
     +'<div class="form-row"><label class="form-label">¿Algo que deba saber? (opcional)</label><textarea class="form-input" id="iNotes" placeholder="Alergias, preferencias de color...">'+esc(state.notes)+'</textarea></div>'
     +'<div class="info-banner"><strong>📋 Política de cancelación:</strong> Si necesitas cancelar o cambiar tu cita, avísame con al menos <strong>24 horas de antelación</strong> por WhatsApp. Las inasistencias repetidas sin aviso pueden afectar a futuras reservas. ¡Gracias por tu comprensión! 💕</div>'
     +'<div class="info-banner" style="margin-top:0.6rem"><strong>⏰ Puntualidad:</strong> Si llegas con más de 15 minutos de retraso, puede que tengamos que reprogramar tu cita para no afectar a otras clientas.</div>'
@@ -733,6 +734,7 @@ function renderStep4() {
   var rows=[['Servicios',svcNames],['Duración',totalDur+' min'],['Fecha',formatDate(d)],['Hora',state.time],['Nombre',esc(state.name)],['Teléfono',esc(state.phone)]];
   if (bnExtra) rows.push(['Uñas rotas', bnExtra]);
   if (state.hasBono) rows.push(['Bono','🎟️ '+state.bonoType]);
+  if (state.giftCode) rows.push(['Tarjeta regalo','🎁 '+esc(state.giftCode)]);
   if (state.firstTime) rows.push(['Primera vez','✨ Sí']);
   if (state.notes) rows.push(['Notas',esc(state.notes)]);
   var payModalHtml = state.showPayModal ? renderPayModal() : '';
@@ -752,10 +754,10 @@ function renderSuccess() {
   var svcNames=state.services.map(function(s){return s.name;}).join(' + ');
   var endM=timeToMins(state.time)+(getTotalDur()||30);
   var dtEnd=state.date.replace(/-/g,'')+'T'+pad(Math.floor(endM/60))+pad(endM%60)+'00';
-  var msg=encodeURIComponent('Hola! Acabo de reservar una cita.\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType+lineaSesionBono():'')+(state.notes?'\nNotas: '+state.notes:'')+'\n\nNos vemos pronto!');
+  var msg=encodeURIComponent('Hola! Acabo de reservar una cita.\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType+lineaSesionBono():'')+(state.giftCode?'\nTarjeta regalo: '+state.giftCode:'')+(state.notes?'\nNotas: '+state.notes:'')+'\n\nNos vemos pronto!');
   var welcomeMsg = state.firstTime ? '<p style="font-size:0.85rem;color:var(--rose);margin-bottom:0.8rem;">✨ ¡Qué ilusión tenerte por primera vez! Te voy a cuidar muy bien 💕</p>' : '';
   if (state.saveFailed) {
-    var msgF=encodeURIComponent('Hola! He intentado reservar en la web pero no se ha guardado. ¿Me la apuntas?\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType:'')+(state.notes?'\nNotas: '+state.notes:''));
+    var msgF=encodeURIComponent('Hola! He intentado reservar en la web pero no se ha guardado. ¿Me la apuntas?\n\nServicio: '+svcNames+'\nFecha: '+formatDate(d)+'\nHora: '+state.time+'\nNombre: '+state.name+'\nTel: '+state.phone+(state.firstTime?'\nEs mi primera vez contigo!':'')+(state.hasBono?'\nTengo un '+state.bonoType:'')+(state.giftCode?'\nTarjeta regalo: '+state.giftCode:'')+(state.notes?'\nNotas: '+state.notes:''));
     return '<div class="card success-screen"><div class="success-icon">!</div><div class="success-title">Casi lista</div>'
       +'<p class="success-sub">No se ha podido guardar tu cita del<br><strong>'+formatDate(d)+' a las '+state.time+'</strong><br>por un problema de conexión.</p>'
       +'<div style="background:#FFF3CD;border:1.5px solid #FFCC00;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#856404;">⚠️ <strong>Pulsa el botón y mándame la reserva por WhatsApp.</strong> Te la apunto yo y te confirmo.</div>'
@@ -947,6 +949,7 @@ function bind() {
     if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ alert('Revisa tu email, parece que no está bien escrito (o déjalo vacío).'); return; }
     state.email=em;
     state.name=n; state.phone=p; state.notes=document.getElementById('iNotes').value.trim();
+    state.giftCode=((document.getElementById('iGiftCode')||{value:''}).value||'').trim().toUpperCase().replace(/\s+/g,'');
     state.firstTime=document.getElementById('iFirstTime').checked;
     state.hasBono=document.getElementById('iHasBono').checked;
     state.bonoType=state.hasBono?(document.getElementById('iBonoType')?document.getElementById('iBonoType').value:''):'';
@@ -992,7 +995,7 @@ function bind() {
   if (btnNew) btnNew.addEventListener('click',function(){
     // Reset completo para una nueva reserva
     state.step=1; state.services=[]; state.date=null; state.time=null;
-    state.name=''; state.phone=''; state.notes=''; state.email='';
+    state.name=''; state.phone=''; state.notes=''; state.email=''; state.giftCode='';
     state.hasBono=false; state.bonoType=''; state.firstTime=false;
     state.brokenNails=0; state.showBrokenModal=false; state.showBonoModal=false;
     state.bonoShown=false; state.showDecoModal=false; state.showPayModal=false;
@@ -1051,7 +1054,7 @@ function guardarCita() {
     Nombre: state.name,
     'Teléfono': state.phone,
     Email: state.email || '',
-    Notas: (state.hasBono ? 'Bono: '+state.bonoType+'. ' : '') + (state.firstTime ? 'Primera vez. ' : '') + (state.brokenNails>0 ? state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
+    Notas: (state.hasBono ? 'Bono: '+state.bonoType+'. ' : '') + (state.giftCode ? '🎁 Tarjeta regalo '+state.giftCode+'. ' : '') + (state.firstTime ? 'Primera vez. ' : '') + (state.brokenNails>0 ? state.brokenNails+' uña(s) rota(s). ' : '') + state.notes,
     'Reservada el': new Date().toLocaleString('es-ES'),
     Estado: 'confirmada'
   };
@@ -1121,6 +1124,7 @@ function renderWelcomeModal() {
     +'¡Te espero con muchas ganas! 💕'
     +'</div>'
     +'<button class="btn-primary" id="closeWelcomeBtn">Empezar a reservar</button>'
+    +'<a href="tarjeta-regalo.html" class="btn-secondary" style="display:block;text-align:center;text-decoration:none;margin-top:0.6rem;color:var(--espresso);border-color:var(--blush);">🎁 Regalar una tarjeta regalo</a>'
     +'<a href="https://instagram.com/nailglam.estefania" target="_blank" class="ig-link" style="margin-top:0.8rem;">📷 Sígueme en Instagram</a>'
     +'<p style="margin-top:0.8rem;font-size:0.88rem;color:var(--warm-gray);text-align:center;">¿Tienes una cita y necesitas cambiarla o cancelarla? <a href="cancelar.html" style="color:var(--rose);text-decoration:none;font-weight:500;">Hazlo aquí</a></p>'
     +'</div></div></div>';
